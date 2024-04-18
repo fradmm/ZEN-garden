@@ -71,6 +71,8 @@ class StorageTechnology(Technology):
         # add min load max load time series for energy
         self.raw_time_series["min_load_energy"] = self.data_input.extract_input_data("min_load_energy", index_sets=["set_nodes", "set_time_steps"], time_steps="set_base_time_steps_yearly", unit_category={})
         self.raw_time_series["max_load_energy"] = self.data_input.extract_input_data("max_load_energy", index_sets=["set_nodes", "set_time_steps"], time_steps="set_base_time_steps_yearly", unit_category={})
+        # add energy_inflow time series
+        self.raw_time_series["energy_inflow"] = self.data_input.extract_input_data("energy_inflow", index_sets=["set_nodes", "set_time_steps"], time_steps="set_base_time_steps_yearly", unit_category={"energy_quantity": 1, "time": -1})
 
     def convert_to_fraction_of_capex(self):
         """ this method converts the total capex to fraction of capex, depending on how many hours per year are calculated """
@@ -111,6 +113,8 @@ class StorageTechnology(Technology):
         optimization_setup.parameters.add_parameter(name="efficiency_charge", index_names=["set_storage_technologies", "set_nodes", "set_time_steps_yearly"], doc='efficiency during charging for storage technologies', calling_class=cls)
         # efficiency discharge
         optimization_setup.parameters.add_parameter(name="efficiency_discharge", index_names=["set_storage_technologies", "set_nodes", "set_time_steps_yearly"], doc='efficiency during discharging for storage technologies', calling_class=cls)
+        # energy inflow
+        optimization_setup.parameters.add_parameter(name="energy_inflow", index_names=["set_storage_technologies", "set_nodes", "set_time_steps_operation"], doc='energy inflow in storage technologies', calling_class=cls)
         # self discharge
         optimization_setup.parameters.add_parameter(name="self_discharge", index_names=["set_storage_technologies", "set_nodes"], doc='self discharge of storage technologies', calling_class=cls)
         # capex specific
@@ -357,6 +361,11 @@ class StorageTechnologyRules(GenericRule):
                                          (after_self_discharge.data/self.parameters.efficiency_discharge.loc[tech, nodes, time_step_year], self.variables["flow_storage_discharge"].loc[tech, nodes, element_time_step])],
                                         coords, self.model)
             rhs = 0
+            #rhs = after_self_discharge.data * self.parameters.energy_inflow.loc[tech, nodes, element_time_step]
+            # reindex element_time_step with times
+            #rhs = rhs.rename({"set_time_steps_operation": f'{tech}_{nodes}_set_time_steps_storage_end'})
+
+
             constraints.append(lhs == rhs)
 
         ### return
