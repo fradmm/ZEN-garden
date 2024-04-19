@@ -13,13 +13,21 @@ def main():
     r_df = Results("outputs/GF2050_dunkeflaute_DE")
     r_fix_1 = Results("outputs/GF2050_fix_df_forced")
 
+    plt.figure(1)
+    plt.plot(r.get_full_ts('flow_conversion_output').loc['photovoltaics','electricity','DE'])
+    plt.xlabel("time (h)")
+    plt.ylabel("Power (MW)")
+    plt.ylim([0, 160])
+    plt.title("PV Electricity production in Germany - Design: BS, Operation: BS")
 
+    plt.figure(2)
+    plt.plot(r_fix_1.get_full_ts('flow_conversion_output').loc['photovoltaics', 'electricity', 'DE'])
+    plt.xlabel("time (h)")
+    plt.ylabel("Power (MW)")
+    plt.ylim([0, 160])
+    plt.title("PV Electricity production in Germany - Design: BS, Operation: DF")
 
-
-
-
-
-
+    plt.show()
 
 
 

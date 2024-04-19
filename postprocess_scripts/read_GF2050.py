@@ -18,7 +18,7 @@ def main():
     end_date = pd.Timestamp('2050-12-31 23:00:00')
     datetime_index = pd.date_range(start=start_date, end=end_date, freq='H')
 
-    country = 'DE'
+    country = 'CH'
     storage_techs = ['battery','hydrogen_storage','pumped_hydro']
     res_techs = ['photovoltaics', 'wind_onshore', 'wind_offshore', 'reservoir_hydro', 'nuclear', 'natural_gas_turbine']
 
