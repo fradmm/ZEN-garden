@@ -73,7 +73,8 @@ class DataInput:
         elif file_name == "distance":
             df_output, default_value, index_name_list = self.create_default_output(index_sets, unit_category, file_name=file_name, time_steps=time_steps, manual_default_value=self.energy_system.set_haversine_distances_edges)
         else:
-            df_output, default_value, index_name_list = self.create_default_output(index_sets, unit_category, file_name=file_name, time_steps=time_steps,subelement=subelement)
+
+           df_output, default_value, index_name_list = self.create_default_output(index_sets, unit_category, file_name=file_name, time_steps=time_steps,subelement=subelement)
         # read input file
         f_name, scenario_factor = self.scenario_dict.get_param_file(self.element.name, file_name)
         df_input = self.read_input_csv(f_name)
@@ -532,7 +533,7 @@ class DataInput:
         df_input = self.read_input_csv(file_type + "capex")
         has_unit = False
         if df_input is not None:
-            string_row = df_input.applymap(lambda x: pd.to_numeric(x, errors='coerce')).isna().any(axis=1)
+            string_row = df_input.map(lambda x: pd.to_numeric(x, errors='coerce')).isna().any(axis=1)
             if string_row.any():
                 unit_row = df_input.loc[string_row]
                 #save non-linear capex units for consistency checks

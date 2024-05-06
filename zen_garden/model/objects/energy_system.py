@@ -54,8 +54,7 @@ class EnergySystem:
 
         # create UnitHandling object
         self.unit_handling = UnitHandling(self.input_path,
-                                          self.optimization_setup.solver["rounding_decimal_points_units"],
-                                          self.optimization_setup.solver["define_ton_as_metric_ton"])
+                                          self.optimization_setup.solver["rounding_decimal_points_units"])
 
         # create DataInput object
         self.data_input = DataInput(element=self, system=self.system,
@@ -219,7 +218,7 @@ class EnergySystem:
         self.optimization_setup.sets.add_set(name="set_time_steps_yearly", data=self.set_time_steps_yearly, doc="Set of yearly time-steps")
         # yearly time steps of entire optimization horizon
         self.optimization_setup.sets.add_set(name="set_time_steps_yearly_entire_horizon", data=self.set_time_steps_yearly_entire_horizon, doc="Set of yearly time-steps of entire optimization horizon")
-        # operational time steps
+         # operational time steps
         self.optimization_setup.sets.add_set(name="set_time_steps_operation",data=self.time_steps.time_steps_operation,doc="Set of operational time steps")
         # storage time steps
         self.optimization_setup.sets.add_set(name="set_time_steps_storage",data=self.time_steps.time_steps_storage,doc="Set of storage level time steps")
