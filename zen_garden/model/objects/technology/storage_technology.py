@@ -352,7 +352,7 @@ class StorageTechnologyRules(GenericRule):
                                             self.parameters.time_steps_storage_duration.loc[times])
 
             coords = [self.variables.coords["set_nodes"],
-                      xr.DataArray(previous_level_time_step, dims=[f"{tech}_{nodes}_set_time_steps_storage_end"])]
+                      xr.DataArray(previous_level_time_step, dims=["set_time_steps_storage_end"])] # dims=[f"{tech}_{nodes}_set_time_steps_storage_end"])]
 
             ### formulate constraint
             lhs = linexpr_from_tuple_np([(1.0, self.variables["storage_level"].loc[tech, nodes, times]),
@@ -361,10 +361,8 @@ class StorageTechnologyRules(GenericRule):
                                          (after_self_discharge.data/self.parameters.efficiency_discharge.loc[tech, nodes, time_step_year], self.variables["flow_storage_discharge"].loc[tech, nodes, element_time_step])],
                                         coords, self.model)
             rhs = 0
-            #rhs = after_self_discharge.data * self.parameters.energy_inflow.loc[tech, nodes, element_time_step]
-            # reindex element_time_step with times
-            #rhs = rhs.rename({"set_time_steps_operation": f'{tech}_{nodes}_set_time_steps_storage_end'})
-
+            rhs = after_self_discharge.data * self.parameters.energy_inflow.loc[tech, nodes, element_time_step]
+            rhs = xr.DataArray(rhs.data, coords=coords)
 
             constraints.append(lhs == rhs)
 
