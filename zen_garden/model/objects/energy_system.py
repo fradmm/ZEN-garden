@@ -218,7 +218,7 @@ class EnergySystem:
         self.optimization_setup.sets.add_set(name="set_time_steps_yearly", data=self.set_time_steps_yearly, doc="Set of yearly time-steps")
         # yearly time steps of entire optimization horizon
         self.optimization_setup.sets.add_set(name="set_time_steps_yearly_entire_horizon", data=self.set_time_steps_yearly_entire_horizon, doc="Set of yearly time-steps of entire optimization horizon")
-         # operational time steps
+        # operational time steps
         self.optimization_setup.sets.add_set(name="set_time_steps_operation",data=self.time_steps.time_steps_operation,doc="Set of operational time steps")
         # storage time steps
         self.optimization_setup.sets.add_set(name="set_time_steps_storage",data=self.time_steps.time_steps_storage,doc="Set of storage level time steps")
@@ -559,7 +559,9 @@ class EnergySystemRules(GenericRule):
         # not necessary
 
         ### formulate constraint
-        if self.parameters.price_carbon_emissions_annual_overshoot == np.inf or self.parameters.carbon_emissions_annual_limit.sum() == np.inf:
+        no_price = self.parameters.price_carbon_emissions_annual_overshoot == np.inf
+        no_limit = (self.parameters.carbon_emissions_annual_limit == np.inf).all()
+        if (no_price or no_limit) and not (no_price and no_limit):
             lhs = self.variables["carbon_emissions_annual_overshoot"]
             rhs = 0
             constraints = lhs == rhs

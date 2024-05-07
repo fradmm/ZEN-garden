@@ -918,7 +918,8 @@ class TechnologyRules(GenericRule):
             rhs = self.parameters.existing_capacities.loc[tech, :, :, year]
             constraints.append(lhs == rhs)
 
-            return self.constraints.return_contraints(constraints,
+        ### return
+        return self.constraints.return_contraints(constraints,
                                                   model=self.model,
                                                   mask=mask,
                                                   index_values=index.get_unique(["set_technologies", "set_time_steps_yearly"]),
