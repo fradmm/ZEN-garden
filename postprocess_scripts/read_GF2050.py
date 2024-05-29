@@ -108,7 +108,8 @@ def main():
 
         fig.add_annotation(xref="x domain", yref="y domain", x=0.5, y=1.1, showarrow=False,
                            text="Country = <b>"+str(country)+"</b>", row=row, col=col)
-        col = col+1
+        fig.update_yaxes(title_text='storage capacity (GWh)', row=row, col=col)
+        col = col + 1
     fig.show()
 
 
@@ -131,7 +132,9 @@ def main():
         fig.add_trace(go.Bar(x=capacity_dr.loc[res_techs].index, y=capacity_dr[0].loc[res_techs].values, name='drought',marker_color='red', showlegend=flag, offsetgroup=2), row=row, col=col)
         fig.add_annotation(xref="x domain", yref="y domain", x=0.5, y=1.1, showarrow=False,
                            text="Country = <b>"+str(country)+"</b>", row=row, col=col)
+        fig.update_yaxes(title_text='conversion capacity (GW)', row=row, col=col)
         col = col+1
+
     fig.show()
 
 
@@ -166,6 +169,7 @@ def main():
 
         fig.add_annotation(xref="x domain", yref="y domain", x=0.5, y=1.1, showarrow=False,
                            text="Country = <b>" + str(country) + "</b>", row=row, col=col)
+        fig.update_yaxes(title_text='Total transport (GWh)', row=row, col=col)
         col = col + 1
 
     fig.show()

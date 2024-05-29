@@ -25,7 +25,7 @@ def main():
     storage_techs = ['battery','hydrogen_storage','pumped_hydro']
     res_techs = ['photovoltaics', 'wind_onshore', 'wind_offshore', 'reservoir_hydro', 'run-of-river_hydro']
 
-    country_list = r.get_system().set_nodes
+    country_list_full = r.get_system().set_nodes
 
     # Plot all storage level per country
 
@@ -52,7 +52,7 @@ def main():
     fig = make_subplots(rows=4, cols=7)
     row = 1
     col = 1
-    for i, country in enumerate(country_list):
+    for i, country in enumerate(country_list_full):
         if col == 8:
             row = row + 1
             col = 1
@@ -95,12 +95,12 @@ def main():
     transport_df = r_df.get_full_ts("flow_transport").loc['power_line']
     transport_dr = r_dr.get_full_ts("flow_transport").loc['power_line']
 
-    # fig = make_subplots(rows=4, cols=7)
+    #fig = make_subplots(rows=4, cols=7)
     fig = make_subplots(rows=1, cols=1)
     row = 1
     col = 1
 
-    country_list = ['NO']
+    country_list = ['FR']
 
     for i, country in enumerate(country_list):
         if col == 8:
@@ -115,7 +115,7 @@ def main():
         imp_df = (transport_df[transport_df.index.str.endswith(country)].sum() - transport_df[transport_df.index.str.startswith(country)].sum()) /r_df.get_full_ts("demand").loc['electricity',country]
         imp_dr = (transport_dr[transport_dr.index.str.endswith(country)].sum() - transport_dr[transport_dr.index.str.startswith(country)].sum()) /r_dr.get_full_ts("demand").loc['electricity',country]
 
-        fig.add_trace(go.Scatter(x=datetime_index, y=imp, name='Reference ', line=dict(width=2), marker_color='green', showlegend=flag),row=row, col=col)
+        fig.add_trace(go.Scatter(x=datetime_index, y=imp, name='Reference ', line=dict(width=4), marker_color='green', showlegend=flag),row=row, col=col)
         fig.add_trace(go.Scatter(x=datetime_index, y=imp_df, name='Dunkelflaute', line=dict(width=1), marker_color='blue', showlegend=flag),
                       row=row, col=col)
         fig.add_trace(go.Scatter(x=datetime_index, y=imp_dr, name='Drought', line=dict(width=1), marker_color='red', showlegend=flag),
@@ -125,8 +125,73 @@ def main():
                            text="Country = <b>" + str(country) + "</b>", row=row, col=col)
         col = col + 1
 
-    fig.update_layout(height=300, width=800, yaxis=dict(title='net import / demand (-)'))
+    fig.update_layout(yaxis=dict(title='net import / demand (-)'))
     fig.show()
+
+
+    # SHADOW PRICE OF TRANSPORT
+
+    transport = r.get_dual("constraint_capacity_factor").loc['power_line',:,'power']
+
+    # fig = make_subplots(rows=4, cols=7)
+    fig = make_subplots(rows=1, cols=1)
+    row = 1
+    col = 1
+
+
+    for i, country in enumerate(country_list):
+        if col == 8:
+            row = row + 1
+            col = 1
+        if i == 0:
+            flag = True
+        else:
+            flag = False
+        imp = (transport[transport.index.str.endswith(country)].sum())
+
+
+        fig.add_trace(go.Scatter(x=datetime_index, y=imp, name='Reference ', line=dict(width=2), marker_color='green',
+                                 showlegend=flag), row=row, col=col)
+
+        fig.add_annotation(xref="x domain", yref="y domain", x=0.5, y=1.1, showarrow=False,
+                           text="Country = <b>" + str(country) + "</b>", row=row, col=col)
+        col = col + 1
+
+    fig.update_layout(yaxis=dict(title='import shadow price'))
+    fig.show()
+
+
+
+    ## SHADOW PRICE NODAL ENERGY BALANCE
+
+    fig = make_subplots(rows=4, cols=7)
+    # fig = make_subplots(rows=1, cols=1)
+    row = 1
+    col = 1
+
+    for i, country in enumerate(country_list_full):
+        if col == 8:
+            row = row + 1
+            col = 1
+        if i == 0:
+            flag = True
+        else:
+            flag = False
+        imp = (transport[transport.index.str.endswith(country)].sum())
+
+        fig.add_trace(go.Scatter(x=datetime_index, y=r.get_dual("constraint_nodal_energy_balance").loc['electricity',country], name='Reference ', line=dict(width=2), marker_color='green',
+                                 showlegend=flag), row=row, col=col)
+
+        fig.add_annotation(xref="x domain", yref="y domain", x=0.5, y=1.1, showarrow=False,
+                           text="Country = <b>" + str(country) + "</b>", row=row, col=col)
+        col = col + 1
+
+    fig.update_layout(yaxis=dict(title='Energy balance shadow price'))
+    fig.show()
+
+
+
+
 
 
     # fig = make_subplots(rows=4, cols=7)
@@ -142,7 +207,7 @@ def main():
         else:
             flag = False
 
-        fig.add_trace(go.Scatter(x=datetime_index, y=r.get_full_ts("shed_demand").loc['electricity',country]/r.get_full_ts("demand").loc['electricity',country], name='Reference', line=dict(width=2), marker_color='green', showlegend=flag),
+        fig.add_trace(go.Scatter(x=datetime_index, y=r.get_full_ts("shed_demand").loc['electricity',country]/r.get_full_ts("demand").loc['electricity',country], name='Reference', line=dict(width=4), marker_color='green', showlegend=flag),
                       row=row, col=col)
         fig.add_trace(
             go.Scatter(x=datetime_index, y=r_df.get_full_ts("shed_demand").loc['electricity',country]/r_df.get_full_ts("demand").loc['electricity',country], name='Dunkelflaute', line=dict(width=1), marker_color='blue', showlegend=flag),
@@ -156,8 +221,44 @@ def main():
 
 
         col = col + 1
-    fig.update_layout(height=300, width=800, yaxis=dict(title='shed demand / demand (-)'))
+    fig.update_layout( yaxis=dict(title='shed demand / demand (-)'))
     fig.show()
+
+    #fig = make_subplots(rows=4, cols=7)
+    fig = make_subplots(rows=1, cols=1)
+    tech = 'hydrogen_storage'
+    row = 1
+    col = 1
+    for i, country in enumerate(country_list):
+        if col == 8:
+            row = row + 1
+            col = 1
+        if i == 0:
+            flag = True
+        else:
+            flag = False
+
+        fig.add_trace(go.Scatter(x=datetime_index, y=r.get_full_ts('storage_level').loc[tech,country],
+                                 name='Reference', line=dict(width=4), marker_color='green', showlegend=flag),
+                      row=row, col=col)
+        fig.add_trace(
+            go.Scatter(x=datetime_index,
+                       y=r_df.get_full_ts('storage_level').loc[tech,country], name='Dunkelflaute', line=dict(width=1), marker_color='blue',
+                       showlegend=flag),
+            row=row, col=col)
+        fig.add_trace(
+            go.Scatter(x=datetime_index,
+                       y=r_dr.get_full_ts('storage_level').loc[tech,country], name='Drought', line=dict(width=1), marker_color='red',
+                       showlegend=flag),
+            row=row, col=col)
+
+        fig.add_annotation(xref="x domain", yref="y domain", x=0.5, y=1.1, showarrow=False,
+                           text="Country = <b>" + str(country) + "</b>", row=row, col=col)
+
+        col = col + 1
+    fig.update_layout(yaxis=dict(title='storage level of '+tech+' (GWh)' ))
+    fig.show()
+
 
     a = 1
 
