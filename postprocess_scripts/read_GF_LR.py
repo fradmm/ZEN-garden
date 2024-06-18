@@ -10,10 +10,12 @@ from zen_garden.postprocess.results.results import Results
 
 def main():
     #zen_garden
-    out_folder = "outputs/20240603_GF"
-    r = Results(out_folder)
+    out_folder = "outputs/"
+    r1 = Results(out_folder + "GF_3_9_LR_46")
+    r2 = Results(out_folder + "GF_9_3_LR_46")
+    r3 = Results(out_folder + "GF_46_3_LR_9")
 
-    jitter_plot_capacity(r, 'conversion')
+    # jitter_plot_capacity(r, 'conversion')
     #jitter_plot_capacity(r,'storage','power')
 
     ##plot costs
@@ -35,17 +37,6 @@ def main():
     Dual variables - shadow price
     r.get_dual("constraint_nodal_energy_balance").loc['scenario_21','electricity',:].sum()
     '''
-    r.get_total('cost_capex_total').groupby(level=0).sum().to_csv('cost_capex_total.csv',index=True)
-    r.get_total('cost_opex_total').groupby(level=0).sum().to_csv('cost_opex_total.csv', index=True)
-    r.get_total('cost_carrier').groupby(level=0).sum().to_csv('cost_carrier.csv', index=True)
-    r.get_total('cost_total').groupby(level=0).sum().to_csv('cost_total.csv', index=True)
-    r.get_total('capacity').to_csv('capacity.csv',index=True)
-    r.get_full_ts('demand').loc[:,'heat',:].to_csv('df_heat_demand.csv',index=True)
-    r.get_dual("constraint_nodal_energy_balance").loc[:,'heat',:].to_csv('df_dual_heat_all_nodes.csv',index=True)
-    r.get_full_ts('demand').loc[:, 'electricity', :].to_csv('df_electricity_demand.csv', index=True)
-    r.get_dual("constraint_nodal_energy_balance").loc[:, 'electricity', :].to_csv('df_dual_electricity_all_nodes.csv', index=True)
-    r.get_total('max_load').loc[:, 'wind_onshore', :].to_csv('df_max_load_wind.csv', index=True)
-
 
     a = 1
 

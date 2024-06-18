@@ -8,14 +8,10 @@ from zen_garden.postprocess.results.results import Results
 
 def main():
     #zen_garden
-    out_folder = "outputs/GF2050_drought_rerun_nosd"
+    out_folder = "outputs/20240617_GF_NE"
+
     r = Results(out_folder)
-
-    out_folder = "outputs/GF2050_drought"
-    r_old = Results(out_folder)
-
-
-
+    r.get_total('capacity')
 
 
     a=1
