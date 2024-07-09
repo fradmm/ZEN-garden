@@ -82,9 +82,6 @@ class HeaderDataInputs(Subscriptable):
     set_technologies_existing: str = "technology_existing"
     set_capacity_types: str = "capacity_type"
 
-
-
-
 class System(Subscriptable):
     model_config = ConfigDict(extra="allow")
     set_carriers: list[str] = []
@@ -112,12 +109,11 @@ class System(Subscriptable):
     interval_between_years: int = 1
     use_rolling_horizon: bool = False
     years_in_rolling_horizon: int = 5
+    interval_between_optimizations: int = 1
     use_capacities_existing: bool = True
-
 
 class SolverOptions(Subscriptable):
     pass
-
 
 class Solver(Subscriptable):
     name: str = "highs"
@@ -140,6 +136,11 @@ class Solver(Subscriptable):
     round_parameters: bool = True
     rounding_decimal_points_capacity: int = 4
     analyze_numerics: bool = True
+    use_scaling: bool = True
+    scaling_include_rhs: bool = False
+    scaling_algorithm: list[str] = ["geom","geom","geom"]
+
+
 
 class TimeSeriesAggregation(Subscriptable):
     slv: Solver = Solver()
@@ -153,7 +154,6 @@ class TimeSeriesAggregation(Subscriptable):
     segmentation: bool = False
     noSegments: int = 12
 
-
 class Analysis(Subscriptable):
     dataset: str = ""
     objective: str = "total_cost"
@@ -162,7 +162,6 @@ class Analysis(Subscriptable):
     subsets: Subsets = Subsets()
     header_data_inputs: HeaderDataInputs = HeaderDataInputs()
     time_series_aggregation: TimeSeriesAggregation = TimeSeriesAggregation()
-    postprocess: bool = False
     folder_output: str = "./outputs/"
     overwrite_output: bool = True
     output_format: str = "h5"
@@ -172,13 +171,8 @@ class Analysis(Subscriptable):
     earliest_year_of_data: int = 1900
 
 class Config(Subscriptable):
-    # analysis: dict = Analysis().model_dump()
     analysis: Analysis = Analysis()
-
-    # solver: dict = Solver().model_dump()
     solver: Solver = Solver()
-
     system: System = System()
-    # system: System = System()
 
     scenarios: dict[str, Any] = {"": {}}
