@@ -8,10 +8,10 @@ from zen_garden.postprocess.results.results import Results
 
 def main():
     #zen_garden
-    out_folder = "outputs/20240617_GF_NE"
+    out_folder = "outputs/1_base_case"
 
     r = Results(out_folder)
-    r.get_total('capacity')
+
 
 
     a=1
