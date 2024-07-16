@@ -364,6 +364,7 @@ class StorageTechnologyRules(GenericRule):
         if len(techs) == 0:
             return
         self_discharge = self.parameters.self_discharge
+        energy_inflow = self.parameters.energy_inflow
         time_steps_storage_duration = self.parameters.time_steps_storage_duration
         # reformulate self discharge multiplier as partial geometric series
         multiplier_w_discharge = (
@@ -384,7 +385,8 @@ class StorageTechnologyRules(GenericRule):
         efficiency_discharge = self.parameters.efficiency_discharge.broadcast_like(times_year_time_step).where(times_year_time_step,0.0).sum("set_time_steps_yearly")
         term_flow_charge_discharge = (
                 self.variables["flow_storage_charge"] * efficiency_charge -
-                self.variables["flow_storage_discharge"] / efficiency_discharge)
+                self.variables["flow_storage_discharge"] / efficiency_discharge +
+                energy_inflow)
         times_power2energy = self.get_power2energy_time_step_array()
         term_flow_charge_discharge = self.map_and_expand(term_flow_charge_discharge, times_power2energy)
         term_flow_charge_discharge = term_flow_charge_discharge*multiplier
