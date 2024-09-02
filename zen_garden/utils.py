@@ -51,42 +51,66 @@ def get_inheritors(klass):
                 work.append(child)
     return subclasses
 
-# This redirects output streams to files
-# --------------------------------------
-# class RedirectStdStreams(object):
-#     """
-#     A context manager that redirects the output to a file
-#     """
-#
-#     def __init__(self, stdout=None, stderr=None):
-#         """
-#         Initializes the context manager
-#
-#         :param stdout: Stream for stdout
-#         :param stderr: Stream for stderr
-#         """
-#         self._stdout = stdout or sys.stdout
-#         self._stderr = stderr or sys.stderr
-#
-#     def __enter__(self):
-#         self.old_stdout, self.old_stderr = sys.stdout, sys.stderr
-#         self.old_stdout.flush()
-#         self.old_stderr.flush()
-#         sys.stdout, sys.stderr = self._stdout, self._stderr
-#
-#     def __exit__(self, exc_type, exc_value, traceback):
-#         """
-#         The exit function of the context manager
-#
-#         :param exc_type: Type of the exit
-#         :param exc_value: Value of the exit
-#         :param traceback:  traceback of the error
-#         """
-#         self._stdout.flush()
-#         self._stderr.flush()
-#         sys.stdout = self.old_stdout
-#         sys.stderr = self.old_stderr
-
+def copy_dataset_example(example):
+    """ copies a dataset example to the current working directory """
+    import requests
+    from importlib.metadata import metadata
+    import zipfile
+    import io
+    url = metadata("zen_garden").get_all("Project-URL")
+    url = [u.split(", ")[1] for u in url if u.split(", ")[0] == "Zenodo"][0]
+    zenodo_meta = requests.get(url,allow_redirects=True)
+    zenodo_meta.raise_for_status()
+    zenodo_data = zenodo_meta.json()
+    zenodo_zip_url = zenodo_data["files"][0]["links"]["self"]
+    zenodo_zip = requests.get(zenodo_zip_url)
+    zenodo_zip = zipfile.ZipFile(io.BytesIO(zenodo_zip.content))
+    base_path = zenodo_zip.filelist[0].filename
+    example_path = f"{base_path}documentation/dataset_examples/{example}/"
+    config_path = f"{base_path}documentation/dataset_examples/config.json"
+    notebook_path = f"{base_path}notebooks/example_notebook.ipynb"
+    local_dataset_path = os.path.join(os.getcwd(), "dataset_examples")
+    if not os.path.exists(local_dataset_path):
+        os.mkdir(local_dataset_path)
+    local_example_path = os.path.join(local_dataset_path, example)
+    if not os.path.exists(local_example_path):
+        os.mkdir(local_example_path)
+    example_found = False
+    config_found = False
+    notebook_found = False
+    for file in zenodo_zip.filelist:
+        if file.filename.startswith(example_path):
+            filename_ending = file.filename.split(example_path)[1]
+            local_folder_path = os.path.join(local_example_path, filename_ending)
+            if file.is_dir():
+                if not os.path.exists(local_folder_path):
+                    os.mkdir(os.path.join(local_example_path, filename_ending))
+            else:
+                local_file_path = os.path.join(local_example_path, filename_ending)
+                with open(local_file_path, "wb") as f:
+                    f.write(zenodo_zip.read(file))
+            example_found = True
+        elif file.filename == config_path:
+            with open(os.path.join(local_dataset_path, "config.json"), "wb") as f:
+                f.write(zenodo_zip.read(file))
+            config_found = True
+        elif file.filename == notebook_path:
+            notebook_path_local = os.path.join(local_dataset_path, "example_notebook.ipynb")
+            notebook = json.loads(zenodo_zip.read(file))
+            for cell in notebook['cells']:
+                if cell['cell_type'] == 'code':  # Check only code cells
+                    for i, line in enumerate(cell['source']):
+                        if "<dataset_name>" in line:
+                            cell['source'][i] = line.replace("<dataset_name>", example)
+            with open(notebook_path_local, "w") as f:
+                json.dump(notebook, f)
+            notebook_found = True
+    assert example_found, f"Example {example} could not be downloaded from the dataset examples!"
+    assert config_found, f"Config.json file could not be downloaded from the dataset examples!"
+    if not notebook_found:
+        logging.warning("Example jupyter notebook could not be downloaded from the dataset examples!")
+    logging.info(f"Example dataset {example} downloaded to {local_example_path}")
+    return local_example_path,os.path.join(local_dataset_path, "config.json")
 
 # This functionality is for the IIS constraints
 # ---------------------------------------------
@@ -1320,8 +1344,8 @@ class StringUtils:
 
         return scenario_name,subfolder,param_map
 
-    @staticmethod
-    def get_model_name(analysis,system):
+    @classmethod
+    def setup_model_folder(cls,analysis,system):
         """
         return model name while conducting some tests
         :param analysis: analysis of optimization
@@ -1330,21 +1354,21 @@ class StringUtils:
         :return: output folder
         """
         model_name = os.path.basename(analysis["dataset"])
-        out_folder = StringUtils.get_output_folder(analysis,system)
+        out_folder = cls.setup_output_folder(analysis,system)
         return model_name,out_folder
 
-    @staticmethod
-    def get_output_folder(analysis,system):
+    @classmethod
+    def setup_output_folder(cls,analysis,system):
         """
         return model name while conducting some tests
         :param analysis: analysis of optimization
         :param system: system of optimization
         :return: output folder
         """
-        model_name = os.path.basename(analysis["dataset"])
         if not os.path.exists(analysis["folder_output"]):
             os.mkdir(analysis["folder_output"])
-        if not os.path.exists(out_folder := os.path.join(analysis["folder_output"], model_name)):
+        out_folder = cls.get_output_folder(analysis)
+        if not os.path.exists(out_folder):
             os.mkdir(out_folder)
         else:
             logging.warning(f"The output folder '{out_folder}' already exists")
@@ -1358,6 +1382,17 @@ class StringUtils:
                             os.unlink(file_path)
                         elif os.path.isdir(file_path):
                             shutil.rmtree(file_path)
+        return out_folder
+
+    @staticmethod
+    def get_output_folder(analysis):
+        """
+        return name of output folder
+        :param analysis: analysis of optimization
+        :return: output folder
+        """
+        model_name = os.path.basename(analysis["dataset"])
+        out_folder = os.path.join(analysis["folder_output"], model_name)
         return out_folder
 
 class ScenarioUtils:

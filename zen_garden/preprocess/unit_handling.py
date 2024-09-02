@@ -323,7 +323,7 @@ class UnitHandling:
                 elif unit_specs["unit_category"] == {}:
                     assert unit_specs["unit_in_base_units"] == self.ureg("dimensionless"), f"The attribute {attribute_name} of {item.__class__.__name__} {item.name} is per definition dimensionless. However, its unit was defined as {unit_specs['unit_in_base_units']}."
                 # check if nonlinear capex file exists for conversion technology since the units defined there overwrite the attributes file units
-                elif attribute_name == "capex_specific" and hasattr(item, "units_nonlinear_capex_files"):
+                elif attribute_name == "capex_specific_conversion" and hasattr(item, "units_nonlinear_capex_files"):
                     for key, value in item.units_nonlinear_capex_files.items():
                         if "capex" in value:
                             capex_specific_unit = value["capex"].values[0]
@@ -721,8 +721,13 @@ class Scaling:
     """
     This class scales the optimization model before solving it and rescales the solution
     """
-    def __init__(self, model, algorithm=["geom"], include_rhs = True):
+    def __init__(self, model, algorithm=None, include_rhs = True):
         #optimization model to perform scaling on
+        if algorithm is None:
+            algorithm = ["geom"]
+        elif type(algorithm) == str:
+            logging.warning("Please provide a list of scaling algorithms, not a single string.")
+            algorithm = [algorithm]
         self.model = model
         self.algorithm = algorithm
         self.include_rhs = include_rhs
@@ -891,8 +896,9 @@ class Scaling:
     def print_numerics(self,i,no_scaling = False):
         data_coo = self.A_matrix.tocoo()
         A_abs = np.abs(data_coo.data)
-        index_max = np.argmax(A_abs)
-        index_min = np.argmin(A_abs)
+        A_abs_nonzero = np.ma.masked_equal(A_abs,0.0,copy=False)
+        index_max = np.argmax(A_abs_nonzero)
+        index_min = np.argmin(A_abs_nonzero)
         row_max = data_coo.row[index_max]
         col_max = data_coo.col[index_max]
         row_min = data_coo.row[index_min]

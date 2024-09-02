@@ -93,7 +93,7 @@ class ConversionTechnology(Technology):
         fraction_year = self.calculate_fraction_of_year()
         self.opex_specific_fixed = self.opex_specific_fixed * fraction_year
         if not self.capex_is_pwa:
-            self.capex_specific = pwa_capex["capex"] * fraction_year
+            self.capex_specific_conversion = pwa_capex["capex"] * fraction_year
         else:
             self.pwa_capex = pwa_capex
             self.pwa_capex["capex"] = [value * fraction_year for value in self.pwa_capex["capex"]]
@@ -113,7 +113,7 @@ class ConversionTechnology(Technology):
             return 0
         # linear
         if not self.capex_is_pwa:
-            capex = self.capex_specific[index[0]].iloc[0] * capacity
+            capex = self.capex_specific_conversion[index[0]].iloc[0] * capacity
         else:
             capex = np.interp(capacity, self.pwa_capex["capacity"], self.pwa_capex["capex"])
         return capex
@@ -131,7 +131,7 @@ class ConversionTechnology(Technology):
         dict_of_attributes = {}
         dict_of_units = {}
         is_pwa_attribute = "capex_is_pwa"
-        attribute_name_linear = "capex_specific"
+        attribute_name_linear = "capex_specific_conversion"
 
         for element in class_elements:
             # extract for pwa
@@ -235,7 +235,7 @@ class ConversionTechnology(Technology):
                         conversion_factor_lower = params.conversion_factor.loc[tech, carrier, node_set].min().data
                         conversion_factor_upper = params.conversion_factor.loc[tech, carrier, node_set].max().data
                         if 0 in conversion_factor_upper:
-                            _rounding_ts = optimization_setup.solver.rounding_decimal_points_ts
+                            _rounding_tsa = optimization_setup.solver.rounding_decimal_points_tsa
                             raise ValueError(f"Maximum conversion factor of {tech} for carrier {carrier} is 0.\nOne reason might be that the conversion factor is too small (1e-{_rounding_ts}), so that it is rounded to 0 after the time series aggregation.")
 
                     lower.loc[tech, carrier, ...] = model.variables["capacity"].lower.loc[tech, "power", node_set, time_step_year].data * conversion_factor_lower
