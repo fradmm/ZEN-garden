@@ -182,7 +182,7 @@ class StorageTechnology(Technology):
         rules.constraint_flow_storage_spillage()
 
         # limit energy to power ratios of capacity additions
-        #rules.constraint_capacity_energy_to_power_ratio()
+        rules.constraint_capacity_energy_to_power_ratio()
 
         # Linear Capex
         rules.constraint_storage_technology_capex()
