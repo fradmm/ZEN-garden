@@ -69,8 +69,7 @@ class StorageTechnology(Technology):
         self.raw_time_series["min_load_energy"] = self.data_input.extract_input_data("min_load_energy", index_sets=["set_nodes", "set_time_steps"], time_steps="set_base_time_steps_yearly", unit_category={})
         self.raw_time_series["max_load_energy"] = self.data_input.extract_input_data("max_load_energy", index_sets=["set_nodes", "set_time_steps"], time_steps="set_base_time_steps_yearly", unit_category={})
         # add flow_storage_inflow time series
-        self.raw_time_series["flow_storage_inflow"] = self.data_input.extract_input_data("flow_storage_inflow", index_sets=["set_nodes", "set_time_steps"],
-                                                                                   time_steps="set_base_time_steps_yearly", unit_category={"energy_quantity": 1, "time": -1})
+        self.raw_time_series["flow_storage_inflow"] = self.data_input.extract_input_data("flow_storage_inflow",index_sets=["set_nodes", "set_time_steps"],time_steps="set_base_time_steps_yearly",unit_category={"energy_quantity": 1, "time": -1})
 
     def convert_to_fraction_of_capex(self):
         """ this method converts the total capex to fraction of capex, depending on how many hours per year are calculated """
@@ -114,7 +113,7 @@ class StorageTechnology(Technology):
         optimization_setup.parameters.add_parameter(name="efficiency_charge", index_names=["set_storage_technologies", "set_nodes", "set_time_steps_yearly"], doc='efficiency during charging for storage technologies', calling_class=cls)
         # efficiency discharge
         optimization_setup.parameters.add_parameter(name="efficiency_discharge", index_names=["set_storage_technologies", "set_nodes", "set_time_steps_yearly"], doc='efficiency during discharging for storage technologies', calling_class=cls)
-        # energy inflow
+        #  flow_storage_inflow
         optimization_setup.parameters.add_parameter(name="flow_storage_inflow", index_names=["set_storage_technologies", "set_nodes", "set_time_steps_operation"], doc='energy inflow in storage technologies', calling_class=cls)
         # self discharge
         optimization_setup.parameters.add_parameter(name="self_discharge", index_names=["set_storage_technologies", "set_nodes"], doc='self discharge of storage technologies', calling_class=cls)
@@ -157,8 +156,7 @@ class StorageTechnology(Technology):
         variables.add_variable(model, name="storage_level", index_sets=cls.create_custom_set(["set_storage_technologies", "set_nodes", "set_time_steps_storage"], optimization_setup), bounds=(0, np.inf),
             doc='storage level of storage technology ón node in each storage time step', unit_category={"energy_quantity": 1})
         # energy spillage
-        variables.add_variable(model, name="flow_storage_spillage", index_sets=(index_values, index_names), bounds=(0, np.inf),
-                               doc='storage spillage of storage technology on node i in each storage time step', unit_category={"energy_quantity":1,"time":-1})
+        variables.add_variable(model, name="flow_storage_spillage", index_sets=(index_values, index_names), bounds=(0, np.inf), doc='storage spillage of storage technology on node i in each storage time step', unit_category={"energy_quantity": 1, "time": -1})
 
     @classmethod
     def construct_constraints(cls, optimization_setup):
@@ -470,8 +468,7 @@ class StorageTechnologyRules(GenericRule):
         rhs = 0
         constraints = lhs <= rhs
 
-        self.constraints.add_constraint("constraint_flow_storage_spillage",constraints)
-
+        self.constraints.add_constraint("constraint_flow_storage_spillage", constraints)
 
     def constraint_storage_technology_capex(self):
         """ definition of the capital expenditures for the storage technology
