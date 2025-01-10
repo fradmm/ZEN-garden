@@ -51,11 +51,11 @@ After successfully running an optimization. you can start the visualization with
     Alternatively, you can pass an arbitrary folder with ``python -m zen_garden.visualization <path to your solutions folder>`` to change the solutions folder.
 
 This command will open a new tab in your default browser with the correct URL.
-If the tab does not open automatically, you can open http://localhost:8000/explorer in any browser of your choice.
+If the tab does not open automatically, you can open http://localhost:8000/ in any browser of your choice.
 
 To interrupt the visualization, you can press ``Ctrl+C`` in the terminal where you started the visualization.
 
-You can investigate precomputed results online with the visualization suite by visiting the following link: https://zen-garden.ethz.ch/explorer/
+You can investigate precomputed results online with the visualization suite by visiting the following link: https://zen-garden.ethz.ch/
 
 .. _Comparing results:
 Comparing results
@@ -72,7 +72,7 @@ Let's assume you have the following two result objects::
 
 Then you can compare the two result objects with the following code::
 
-    from zen_garden.postprocess.results.comparisons import compare_model_values, compare_configs
+    from zen_garden.postprocess.comparisons import compare_model_values, compare_configs
     compare_parameters = compare_model_values([r1, r2], component_type = 'parameter')
     compare_variables = compare_model_values([r1, r2], component_type = 'variable')
     compare_config = compare_configs([r1, r2])
