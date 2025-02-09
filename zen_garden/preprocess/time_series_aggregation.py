@@ -93,8 +93,11 @@ class TimeSeriesAggregation(object):
                 self.column_names_flat = [str(index) for index in self.column_names_original]
                 self.df_ts_raw.columns = self.column_names_flat
         elif direction == "raise":
-            self.typical_periods = self.typical_periods[self.column_names_flat]
-            self.typical_periods.columns = self.column_names_original
+            if isinstance(self.typical_periods.columns[0], str):
+                self.typical_periods = self.typical_periods[self.column_names_flat]
+                self.typical_periods.columns = self.column_names_original
+            elif isinstance(self.typical_periods.columns[0], tuple):
+                self.typical_periods = self.typical_periods[self.column_names_original]
 
 
     def run_tsa(self,year_specific=None):
@@ -260,13 +263,17 @@ class TimeSeriesAggregation(object):
         #only run specific TSA if TSA is activated and set_base_time_steps > aggregated_time_steps
         if self.number_typical_periods < np.size(self.set_base_time_steps) and self.system.conduct_time_series_aggregation:
             for year in self.optimization_setup.year_specific_ts:
+                print("Conducting time series aggregation for year", range(self.system.reference_year,
+                       self.system.reference_year + self.system.optimized_years * self.system.interval_between_years,
+                       self.system.interval_between_years)[year])
                 #create empty dictionary for saving year specific TSA results
                 self.year_specific_tsa[year] = {}
                 #make copy of raw time series
                 year_raw_ts = self.df_ts_raw_copy.copy()
-                elements = year_raw_ts.columns.get_level_values(0).unique()
-                time_series = year_raw_ts.columns.get_level_values(1).unique()
-                for element,ts in zip(elements,time_series):
+                elements_ts_set = set(zip(year_raw_ts.columns.get_level_values(0),year_raw_ts.columns.get_level_values(1)))
+                #elements = year_raw_ts.columns.get_level_values(0).unique()
+                #time_series = year_raw_ts.columns.get_level_values(1).unique()
+                for (element,ts) in elements_ts_set: # zip(elements,time_series):
                     unstacked = year_raw_ts.unstack(header_set_time_steps)
                     if (element,ts) in self.optimization_setup.year_specific_ts[year].keys():
                         unstacked[element,ts] = self.optimization_setup.year_specific_ts[year][(element,ts)]
@@ -339,6 +346,8 @@ class TimeSeriesAggregation(object):
                             #ToDO better assignment of values?
                             for column in year_ts.columns:
                                 new_ts.loc[column,element_time_steps] = year_ts[column].values
+                                #idx = pd.IndexSlice
+                                #new_ts.loc[idx[column[0], column[1], element_time_steps]] = year_ts[column].values
                 #insert year specific TS if not aggregated
                 else:
                     for year in self.optimization_setup.year_specific_ts.keys():
@@ -348,7 +357,10 @@ class TimeSeriesAggregation(object):
                             year_ts = self.optimization_setup.year_specific_ts[year][(element.name,ts)].unstack(header_set_time_steps).T
                             #ToDO better assignment of values?
                             for column in year_ts.columns:
-                                new_ts.loc[column, element_time_steps] = year_ts[column].values
+                                if isinstance(column, tuple):
+                                    new_ts.loc[*column, element_time_steps] = year_ts[column].values
+                                else:
+                                    new_ts.loc[column, element_time_steps] = year_ts[column].values
                 #overwrite time series
                 setattr(element, ts, new_ts)
 

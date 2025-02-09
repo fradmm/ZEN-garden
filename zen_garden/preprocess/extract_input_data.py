@@ -147,6 +147,16 @@ class DataInput:
         common_index = df_output.index.intersection(df_input.index)
         assert default_value is not None or len(common_index) == len(df_output.index), f"Input for {file_name} does not provide entire dataset and no default given in attributes.json"
         df_output.loc[common_index] = df_input.loc[common_index]
+
+        # add the index reference carrier in coversion_factor
+        if file_name == "conversion_factor":
+            dependent_carrier = list(set(self.element.input_carrier + self.element.output_carrier).difference(self.element.reference_carrier))
+            if len(dependent_carrier) > 0:
+                df_output = df_output.reset_index()
+                df_output['carrier'] = dependent_carrier[0]
+                df_output = df_output.set_index(['carrier'] + index_name_list).sort_index()
+                a=1
+
         return df_output
 
     def read_input_csv(self, input_file_name):
@@ -858,6 +868,12 @@ class DataInput:
             requested_index_values = requested_index_values_in_columns
             df_input.columns = df_input.columns.set_names(missing_index)
             df_input = df_input[list(requested_index_values)].stack()
+            ## add carrier level for conversion_factor
+            # if file_name == "conversion_factor":
+            #     dependent_carrier = 'electricity'
+            #     df_input = df_input.reset_index()
+            #     df_input['carrier'] = dependent_carrier
+            #     df_input = df_input.set_index(df_output.index.names).sort_index()
             df_input = df_input.reorder_levels(df_output.index.names)
         # the missing index does not appear in df_input
         # the values in df_input are extended to all missing index values
