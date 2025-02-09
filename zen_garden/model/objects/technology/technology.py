@@ -44,7 +44,6 @@ class Technology(Element):
         # set attributes of technology
         set_location = self.location_type
         self.capacity_addition_min = self.data_input.extract_input_data("capacity_addition_min", index_sets=[], unit_category={"energy_quantity": 1, "time": -1})
-        self.capacity_addition_max = self.data_input.extract_input_data("capacity_addition_max", index_sets=[], unit_category={"energy_quantity": 1, "time": -1})
         self.capacity_addition_unbounded = self.data_input.extract_input_data("capacity_addition_unbounded", index_sets=[], unit_category={"energy_quantity": 1, "time": -1})
         self.lifetime = self.data_input.extract_input_data("lifetime", index_sets=[], unit_category={})
         self.construction_time = self.data_input.extract_input_data("construction_time", index_sets=[], unit_category={})
@@ -58,6 +57,7 @@ class Technology(Element):
         self.raw_time_series["opex_specific_variable"] = self.data_input.extract_input_data("opex_specific_variable", index_sets=[set_location, "set_time_steps"], time_steps="set_base_time_steps_yearly", unit_category={"money": 1, "energy_quantity": -1})
         # non-time series input data
         self.capacity_limit = self.data_input.extract_input_data("capacity_limit", index_sets=[set_location, "set_time_steps_yearly"], time_steps="set_time_steps_yearly", unit_category={"energy_quantity": 1, "time": -1})
+        self.capacity_addition_max = self.data_input.extract_input_data("capacity_addition_max", index_sets=["set_time_steps_yearly"], time_steps="set_time_steps_yearly", unit_category={"energy_quantity": 1, "time": -1})
         self.carbon_intensity_technology = self.data_input.extract_input_data("carbon_intensity_technology", index_sets=[set_location], unit_category={"emissions": 1, "energy_quantity": -1})
         # extract existing capacity
         self.set_technologies_existing = self.data_input.extract_set_technologies_existing()
@@ -313,7 +313,7 @@ class Technology(Element):
         # minimum capacity addition
         optimization_setup.parameters.add_parameter(name="capacity_addition_min", index_names=["set_technologies", "set_capacity_types"], capacity_types=True, doc='Parameter which specifies the minimum capacity addition that can be installed', calling_class=cls)
         # maximum capacity addition
-        optimization_setup.parameters.add_parameter(name="capacity_addition_max", index_names=["set_technologies", "set_capacity_types"], capacity_types=True, doc='Parameter which specifies the maximum capacity addition that can be installed', calling_class=cls)
+        optimization_setup.parameters.add_parameter(name="capacity_addition_max", index_names=["set_technologies", "set_capacity_types", "set_time_steps_yearly"], capacity_types=True, doc='Parameter which specifies the maximum capacity addition that can be installed', calling_class=cls)
         # unbounded capacity addition
         optimization_setup.parameters.add_parameter(name="capacity_addition_unbounded", index_names=["set_technologies"], doc='Parameter which specifies the unbounded capacity addition that can be added each year (only for delayed technology deployment)', calling_class=cls)
         # lifetime existing technologies
@@ -717,22 +717,26 @@ class TechnologyRules(GenericRule):
         """max capacity addition of technology
 
         .. math::
-            s^\\mathrm{max}_{h} g_{i,p,y} \\ge \\Delta S_{h,p,y}
+            s^\\mathrm{max}_{h,y} g_{i,p,y} \\ge \\Delta S_{h,p,y}
 
-        :math:`s^\\mathrm{add, max}_{h}`: maximum capacity addition of technology :math:`h`  \n
+        :math:`s^\\mathrm{add, max}_{h}`: maximum capacity addition of technology :math:`h` in year :math:`y` \n
         :math:`g_{i,p,y}`: binary variable which equals 1 if technology is installed at location :math:`p` in year :math:`y` \n
         :math:`\\Delta S_{h,p,y}`: size of built technology :math:`h` (invested capacity after construction) at location :math:`p` in year :math:`y`
 
         """
         capacity_addition_max = self.parameters.capacity_addition_max
-        mask = (capacity_addition_max != np.inf) & (capacity_addition_max != 0) & (capacity_addition_max.notnull())
+        # mask = (capacity_addition_max != np.inf) & (capacity_addition_max != 0) & (capacity_addition_max.notnull())
+        mask = (capacity_addition_max != np.inf) &(capacity_addition_max.notnull())
 
         # if mask is empty, return None
         if not mask.any():
             return None
-        lhs = mask * (capacity_addition_max * self.variables["technology_installation"] - self.variables["capacity_addition"])
-        rhs = 0
-        constraints = lhs >= rhs
+        # lhs = mask * (capacity_addition_max * self.variables["technology_installation"] - self.variables["capacity_addition"])
+        lhs = mask * (self.variables["capacity_addition"])
+
+        rhs = mask * capacity_addition_max
+
+        constraints = lhs <= rhs
 
         self.constraints.add_constraint("constraint_technology_max_capacity_addition",constraints)
 
