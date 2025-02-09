@@ -110,6 +110,11 @@ class EnergySystem:
         # knowledge_spillover_rate
         self.knowledge_depreciation_rate = self.data_input.extract_input_data("knowledge_depreciation_rate", index_sets=[], unit_category={})
         self.knowledge_spillover_rate = self.data_input.extract_input_data("knowledge_spillover_rate", index_sets=[], unit_category={})
+        # probability
+        self.probability = self.data_input.extract_input_data("probability", index_sets=["set_time_steps_yearly"], time_steps="set_time_steps_yearly", unit_category={})
+        # expected loss of load
+        self.expected_loss_of_load = self.data_input.extract_input_data("expected_loss_of_load", index_sets=[], unit_category={})
+
 
     def calculate_edges_from_nodes(self):
         """ calculates set_nodes_on_edges from set_nodes
@@ -252,6 +257,10 @@ class EnergySystem:
         parameters.add_parameter(name="knowledge_depreciation_rate", doc='Parameter which specifies the knowledge depreciation rate', calling_class=cls)
         # knowledge spillover rate
         parameters.add_parameter(name="knowledge_spillover_rate", doc='Parameter which specifies the knowledge spillover rate', calling_class=cls)
+        # probability
+        parameters.add_parameter(name="probability", set_time_steps="set_time_steps_yearly", doc='Parameter which specifies the probability of a given year to happen', calling_class=cls)
+        # expected loss of load
+        parameters.add_parameter(name="expected_loss_of_load", doc='Parameter which specifies the expected loss of load', calling_class=cls)
 
     def construct_vars(self):
         """ constructs the pe.Vars of the class <EnergySystem> """
@@ -311,6 +320,9 @@ class EnergySystem:
 
         # disable annual carbon emissions overshoot
         self.rules.constraint_carbon_emissions_annual_overshoot()
+
+        # expected loss of load
+        self.rules.constraint_expected_loss_of_load()
 
 
     def construct_objective(self):
@@ -440,7 +452,7 @@ class EnergySystemRules(GenericRule):
             # economic discount
             factor[year] = sum(((1 / (1 + self.parameters.discount_rate)) ** (self.system.interval_between_years * (year - self.energy_system.set_time_steps_yearly[0]) + _intermediate_time_step))
                          for _intermediate_time_step in range(0, interval_between_years))
-        term_discounted_cost_total = self.variables["cost_total"] * factor
+        term_discounted_cost_total = self.variables["cost_total"] # no discount for stochastic formulation * factor
 
         lhs = self.variables["net_present_cost"] - term_discounted_cost_total
         rhs = 0
@@ -553,15 +565,40 @@ class EnergySystemRules(GenericRule):
 
         """
 
+        probability = self.parameters.probability
+
         lhs = (self.variables["cost_total"]
                - self.variables["cost_capex_yearly_total"]
-               - self.variables["cost_opex_yearly_total"]
-               - self.variables["cost_carrier_total"]
-               - self.variables["cost_carbon_emissions_total"])
+               - probability * self.variables["cost_opex_yearly_total"]
+               - probability * self.variables["cost_carrier_total"]
+               - probability * self.variables["cost_carbon_emissions_total"])
         rhs = 0
         constraints = lhs == rhs
 
         self.constraints.add_constraint("constraint_cost_total",constraints)
+
+    def constraint_expected_loss_of_load(self):
+        """ expected loss of load constraint
+
+        .. math::
+
+        """
+        demand = self.parameters.demand
+        probability = self.parameters.probability
+        shed_demand = self.variables["shed_demand"]
+        expected_loss_of_load = self.parameters.expected_loss_of_load
+
+        demand_annual = (demand*self.get_year_time_step_duration_array()).sum(["set_nodes", "set_time_steps_operation"])
+        mask = demand_annual > 0
+
+        shed_demand_annual = (shed_demand*self.get_year_time_step_duration_array()).sum(["set_nodes", "set_time_steps_operation"])
+
+        lhs = (shed_demand_annual * probability * 0.5 / demand_annual).where(mask).sum(["set_carriers","set_time_steps_yearly"])
+        rhs = expected_loss_of_load
+        constraints = lhs <= rhs
+
+        self.constraints.add_constraint("constraint_expected_loss_of_load",constraints)
+
 
     # Objective rules
     # ---------------
