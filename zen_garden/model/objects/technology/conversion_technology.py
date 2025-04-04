@@ -57,6 +57,7 @@ class ConversionTechnology(Technology):
         # get conversion efficiency and capex
         self.get_conversion_factor()
         self.opex_specific_fixed = self.data_input.extract_input_data("opex_specific_fixed", index_sets=["set_nodes", "set_time_steps_yearly"], time_steps="set_time_steps_yearly", unit_category={"money": 1, "energy_quantity": -1, "time": 1})
+        self.flow_conversion_output_yearly_max = self.data_input.extract_input_data("flow_conversion_output_yearly_max", index_sets=["set_nodes", "set_time_steps_yearly"], time_steps="set_time_steps_yearly", unit_category={"energy_quantity": 1})
         self.convert_to_fraction_of_capex()
 
     def get_conversion_factor(self):
@@ -188,6 +189,9 @@ class ConversionTechnology(Technology):
         # slope of linearly modeled conversion efficiencies
         optimization_setup.parameters.add_parameter(name="conversion_factor", index_names=["set_conversion_technologies", "set_dependent_carriers", "set_nodes", "set_time_steps_operation"],
             doc="Parameter which specifies the conversion factor", calling_class=cls)
+        optimization_setup.parameters.add_parameter(name="flow_conversion_output_yearly_max",index_names=["set_conversion_technologies", "set_nodes","set_time_steps_yearly"],
+                                                    doc="Parameter which specifies the maximum cumulative flow of the output carrier in year y", calling_class=cls)
+
 
         # add params of the child classes
         for subclass in cls.__subclasses__():
@@ -273,6 +277,8 @@ class ConversionTechnology(Technology):
         rules.constraint_opex_emissions_technology_conversion()
         # conversion factor
         rules.constraint_carrier_conversion()
+        # flow conversion output yeatly max
+        rules.constraint_flow_conversion_output_yearly_max()
 
         # capex
         set_pwa_capex = cls.create_custom_set(["set_conversion_technologies", "set_capex_pwa", "set_nodes", "set_time_steps_yearly"], optimization_setup)
@@ -502,4 +508,21 @@ class ConversionTechnologyRules(GenericRule):
 
         self.constraints.add_constraint("constraint_carrier_conversion", constraints)
 
+    def constraint_flow_conversion_output_yearly_max(self):
 
+        """ maximum cumulative flow of the output carrier in year y
+
+        .. math::
+            G_{i,n,y}^\\mathrm{d} \\leq \\Delta S_{i,n,y}^\\mathrm{max}
+
+        :math:`G_{i,n,y}^\\mathrm{d}`: dependent carrier flow of the technology :math:`i` at node :math:`n` in year :math:`y` \n
+        :math:`\\Delta S_{i,n,y}^\\mathrm{max}`: maximum cumulative flow of the output carrier in year :math:`y`
+
+        """
+        mask = self.parameters.flow_conversion_output_yearly_max != np.inf
+
+        lhs = (self.variables["flow_conversion_output"] * self.get_year_time_step_duration_array()).sum("set_time_steps_operation").where(mask)
+        rhs = self.parameters.flow_conversion_output_yearly_max.where(mask)
+        constraints = lhs <= rhs
+
+        self.constraints.add_constraint("constraint_flow_conversion_output_yearly_max", constraints)
