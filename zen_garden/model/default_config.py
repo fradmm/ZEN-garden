@@ -114,6 +114,7 @@ class System(Subscriptable):
     years_in_rolling_horizon: int = 1
     years_in_decision_horizon: int = 1
     use_capacities_existing: bool = True
+    allow_investment: bool = True
 
 class SolverOptions(Subscriptable):
     pass
@@ -132,6 +133,7 @@ class Solver(Subscriptable):
     save_parameters: bool = True
     selected_saved_parameters: list = [] # if empty, all parameters are saved
     selected_saved_variables: list = [] # if empty, all variables are saved
+    selected_saved_duals: list = [] # if empty, all duals are saved (if save_duals is True)
     linear_regression_check: dict[str, float] = {
         "eps_intercept": 0.1,
         "epsRvalue": 1 - (1e-5),
