@@ -57,10 +57,11 @@ def compare_variables_results(test_model: str, results: Results, folder_path: st
     if test_model in test_variables:
         for s in test_variables[test_model]:
             if s in results.solution_loader.scenarios:
+                scenario = results.solution_loader.scenarios[s]
                 test_values = test_variables[test_model][s]
                 for c in test_values:
-                    if c in results.solution_loader.components:
-                        values = results.get_df(c)[s]
+                    if c in scenario.components:
+                        values = results.get_df(c,scenario_name=s)
                         for test_value in test_values[c]:
                             if isinstance(test_value["index"],list):
                                 test_index = tuple(test_value["index"])
@@ -94,7 +95,6 @@ def compare_variables_results(test_model: str, results: Results, folder_path: st
 def check_get_total_get_full_ts(
     results: Results,
     specific_scenario=False,
-    element_name=None,
     year=None,
     discount_to_first_step=True,
     get_doc=False,
@@ -104,7 +104,6 @@ def check_get_total_get_full_ts(
 
     :param get_doc:
     :param discount_to_first_step: Apply annuity to first year of interval or entire interval
-    :param element_name: Specific element
     :param year: Specific year
     :param specific_scenario: Specific scenario
     :param results: Results instance of testcase function has been called from
@@ -122,14 +121,6 @@ def check_get_total_get_full_ts(
                 year=year,
                 discount_to_first_step=discount_to_first_step,
             )
-        if element_name is not None:
-            df_total = results.get_total(
-                test_variable, element_name=df_total.index[0][0]
-            )
-            if test_variable != "capacity_limit":
-                df_full_ts = results.get_full_ts(
-                    test_variable, element_name=df_full_ts.index[0][0]
-                )
     if get_doc:
         results.get_doc(test_variables[0])
 
@@ -209,6 +200,16 @@ def test_1f(config, folder_path):
     # read the results and check again
     res = Results(os.path.join("outputs", data_set_name))
     compare_variables_results(data_set_name, res, folder_path)
+    # read the results and check again
+    res = Results(os.path.join("outputs", data_set_name))
+    compare_variables_results(data_set_name, res, folder_path)
+
+
+def test_1g(config, folder_path):
+    # run the test
+    data_set_name = "test_1g"
+    main(config=config, dataset_path=os.path.join(folder_path, data_set_name))
+
     # read the results and check again
     res = Results(os.path.join("outputs", data_set_name))
     compare_variables_results(data_set_name, res, folder_path)
@@ -515,9 +516,18 @@ def test_8a(config, folder_path):
     check_get_total_get_full_ts(res)
 
 
+def test_9a(config, folder_path):
+    # run the test
+    data_set_name = "test_9a"
+    with pytest.raises(AssertionError, match='The attribute units defined in the energy_system are not consistent!'):
+        main(
+            config=config, dataset_path=os.path.join(folder_path, data_set_name)
+        )
+
+
 if __name__ == "__main__":
     from config import config
 
     config.solver.keep_files = False
     folder_path = os.path.dirname(__file__)
-    test_3c(config, folder_path)
+    test_1b(config, folder_path)

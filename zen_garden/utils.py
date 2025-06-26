@@ -69,7 +69,8 @@ def copy_dataset_example(example):
     example_path = f"{base_path}docs/dataset_examples/{example}/"
     config_path = f"{base_path}docs/dataset_examples/config.json"
     notebook_path = f"{base_path}docs/dataset_examples/example_notebook.ipynb"
-    local_dataset_path = os.path.join(os.getcwd(), "dataset_examples")
+    #local_dataset_path = os.path.join(os.getcwd(), "dataset_examples")
+    local_dataset_path = os.getcwd()
     if not os.path.exists(local_dataset_path):
         os.mkdir(local_dataset_path)
     local_example_path = os.path.join(local_dataset_path, example)
@@ -258,6 +259,17 @@ def reformat_slicing_index(index, component) -> tuple[str]:
             ref_index = tuple()
 
         return ref_index
+
+def get_label_position(obj,label:int):
+    """ Get dict of index and coordinate for variable or constraint labels."""
+    name_element = obj.get_name_by_label(int(label))
+    element = obj[name_element]
+    if element.ndim > 0:
+        selection = element[np.where(element.labels == label)]
+        mapping = (name_element,{k: v.values[0] for k, v in selection.indexes.variables.items()})
+    else:
+        mapping = (name_element,{})
+    return mapping
 
 # This functionality is for the IIS constraints
 # ---------------------------------------------
@@ -458,7 +470,7 @@ class ScenarioDict(dict):
     This is a dictionary for the scenario analysis that has some convenience functions
     """
 
-    _param_dict_keys = {"file", "file_op", "default", "default_op", "value"}
+    _param_dict_keys = {"file", "part_file", "file_op", "default", "default_op", "value"}
     _special_elements = ["base_scenario", "sub_folder", "param_map"]
     _setting_elements = ["system", "analysis", "solver"]
 
@@ -751,6 +763,21 @@ class ScenarioDict(dict):
             self._check_if_numeric_default_factor(default_factor, element=element, param=param, default_f_name=default_f_name, op_type="file_op")
 
         return default_f_name, default_factor
+
+    def get_param_part_file(self, element, param):
+        """
+        Return the partial file name where the parameter values should be read out
+        :param element: the element name
+        :param param: the parameter of the element for which the partial file name is returned
+        :return:  If the entry is overwritten by the scenario analysis the entry, otherwise None
+        """
+        if element in self.dict and param in (element_dict := self.dict[element]):
+            param_dict = element_dict[param]
+            if "part_file" in param_dict:
+                part_file = param_dict["part_file"]
+                part_file = self.validate_file_name(part_file)
+                return part_file
+        return None
 
     def _check_if_numeric_default_factor(self, default_factor, element, param, default_f_name, op_type):
         """Check if the default factor is numeric

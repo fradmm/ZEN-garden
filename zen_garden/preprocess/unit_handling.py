@@ -17,6 +17,7 @@ from pint.util import column_echelon_form
 from pathlib import Path
 from zen_garden.model.objects.technology.technology import Technology
 from zen_garden.model.objects.carrier.carrier import Carrier
+from zen_garden.utils import get_label_position
 
 import time
 
@@ -649,11 +650,11 @@ class UnitHandling:
 
     @staticmethod
     def check_pos_neg_boolean(array, axis=None):
-        """ checks if the array has only positive or negative booleans (-1,0,1)
+        """ checks if the array has only positive or negative booleans (-1,0,1).
 
         :param array: numeric numpy array
         :param axis: axis of dataframe
-        :return is_pos_neg_boolean """
+        :return is_pos_neg_boolean: """
         if axis:
             is_pos_neg_boolean = np.apply_along_axis(lambda row: np.array_equal(np.abs(row), np.abs(row).astype(bool)), 1, array).any()
         else:
@@ -675,7 +676,7 @@ class Scaling:
         :param include_rhs: bool whether to include the right hand side in the scaling
 
         """
-        #optimization model to perform scaling on
+        # optimization model to perform scaling on
         if algorithm is None:
             algorithm = ["geom"]
         elif type(algorithm) == str:
@@ -684,10 +685,10 @@ class Scaling:
         self.model = model
         self.algorithm = algorithm
         self.include_rhs = include_rhs
-        #For Numerical Range Improvement
+        # For Numerical Range Improvement
         self.last_lhs_range = 0
         self.last_rhs_range = 0
-        #For benchmarking
+        # For benchmarking
         self.scaling_time = 0
 
     def initiate_A_matrix(self):
@@ -696,7 +697,7 @@ class Scaling:
 
         """
         self.A_matrix = self.model.constraints.to_matrix(filter_missings=False)
-        self.A_matrix_copy = self.A_matrix.copy() #necessary for printing of numerics
+        self.A_matrix_copy = self.A_matrix.copy() # necessary for printing of numerics
         self.D_r_inv = np.ones(self.A_matrix.get_shape()[0])
         self.D_c_inv = np.ones(self.A_matrix.get_shape()[1])
         self.rhs = []
@@ -708,9 +709,9 @@ class Scaling:
                 self.rhs += constraint.rhs.data[mask].tolist()
             except:
                 self.rhs += [constraint.rhs.data]
-        self.rhs = np.array(self.rhs) #np.abs(np.array(self.rhs)) -> could get rid of all the other np.ads in iter_sclaing() etc. but then print numerics only includes absolute values
+        self.rhs = np.array(self.rhs) # np.abs(np.array(self.rhs)) -> could get rid of all the other np.ads in iter_sclaing() etc. but then print numerics only includes absolute values
         self.rhs[self.rhs == np.inf] = 0
-        self.rhs_copy = self.rhs.copy() #necessary for printing of numerics
+        self.rhs_copy = self.rhs.copy() # necessary for printing of numerics
 
     def re_scale(self):
         """
@@ -726,7 +727,7 @@ class Scaling:
         """
         Analyzes the numerics of the optimization model
         """
-        #print numerics if no scaling is activated
+        # print numerics if no scaling is activated
         self.initiate_A_matrix()
         self.A_matrix.eliminate_zeros()
         self.print_numerics(0,True)
@@ -786,7 +787,7 @@ class Scaling:
         """
         Adjusts the column scaling factors corresponding to variables that are part of rows that are skipped.
         If the scaling factors are not adjusted, the problem cannot be rescaled to the original problem.
-l
+
         :param name: name of the constraint for which the scaling factors are adjusted
         """
         constraint = self.model.constraints[name]
@@ -833,7 +834,7 @@ l
                 continue
             else:
                 self.replace_data(name_con)
-        #overwrite objective
+        # overwrite objective
         vars = self.model.objective.vars.data
         scale_factors = self.D_c_inv[vars]
         self.model.objective.coeffs.data = self.model.objective.coeffs.data * scale_factors
@@ -909,14 +910,14 @@ l
         :return: string for log-outputs
         """
         if is_rhs:
-            cons_str = self.model.constraints.get_label_position(label)
-            cons_str = cons_str[0] + str(list(cons_str[1].values()))
+            cons_str = get_label_position(self.model.constraints,label)
+            cons_str = f"{cons_str[0]}[{','.join([str(l) for l in cons_str[1].values()])}]"
             return f"{self.rhs[label]} in {cons_str}"
         else:
-            cons_str = self.model.constraints.get_label_position(label)
-            cons_str = cons_str[0] + str(list(cons_str[1].values()))
-            var_str = self.model.variables.get_label_position(var)
-            var_str = var_str[0] + str(list(var_str[1].values()))
+            cons_str = get_label_position(self.model.constraints,label)
+            cons_str = f"{cons_str[0]}[{','.join([str(l) for l in cons_str[1].values()])}]"
+            var_str = get_label_position(self.model.variables,var)
+            var_str = f"{var_str[0]}[{','.join([str(l) for l in var_str[1].values()])}]"
             return f"{A_matrix[index]} {var_str} in {cons_str}"
 
     def print_numerics(self,i,no_scaling = False, benchmarking_output = False):
@@ -940,24 +941,24 @@ l
         col_min = data_coo.col[index_min]
         rhs_max_index = np.where(np.abs(self.rhs) == np.max(np.abs(self.rhs)[self.rhs != np.inf]))[0][0]
         rhs_min_index = np.where(np.abs(self.rhs) == np.min(np.abs(self.rhs)[np.abs(self.rhs) > 0]))[0][0]
-        #Max Matrix String
+        # Max Matrix String
         cons_str_max = self.generate_numerics_string(row_max, index=index_max,A_matrix=data_coo.data,var=col_max)
-        #Min Matrix String
+        # Min Matrix String
         cons_str_min = self.generate_numerics_string(row_min, index=index_min,A_matrix=data_coo.data,var=col_min)
-        #RHS values
+        # RHS values
         cons_rhs_max = self.generate_numerics_string(rhs_max_index, is_rhs=True)
         cons_rhs_min = self.generate_numerics_string(rhs_min_index, is_rhs=True)
-        #Ranges
+        # Ranges
         # LHS
         range_lhs = np.floor(np.log10(A_abs[index_max]) - np.log10(A_abs[index_min]))
         # RHS
         range_rhs = np.floor(np.log10(np.abs(self.rhs[rhs_max_index])) - np.log10(np.abs(self.rhs[rhs_min_index])))
-        if benchmarking_output: #for postprocessing
+        if benchmarking_output: # for postprocessing
             range_lhs = np.log10(A_abs[index_max]) - np.log10(A_abs[index_min])
             range_rhs = np.log10(np.abs(self.rhs[rhs_max_index])) - np.log10(np.abs(self.rhs[rhs_min_index]))
             return range_lhs, range_rhs
         else:
-            #Prints
+            # Prints
             if no_scaling:
                 logging.info(f"\n--- Analyze Numerics ---\n")
             else:
