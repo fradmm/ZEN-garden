@@ -93,8 +93,9 @@ class TimeSeriesAggregation(object):
                 self.column_names_flat = [str(index) for index in self.column_names_original]
                 self.df_ts_raw.columns = self.column_names_flat
         elif direction == "raise":
-            self.typical_periods = self.typical_periods[self.column_names_flat]
-            self.typical_periods.columns = self.column_names_original
+            if not isinstance(self.typical_periods.columns, pd.MultiIndex):
+                self.typical_periods = self.typical_periods[self.column_names_flat]
+                self.typical_periods.columns = self.column_names_original
 
     def run_tsa(self,year_specific=None):
         """ this method runs the time series aggregation """
@@ -264,7 +265,8 @@ class TimeSeriesAggregation(object):
                 year_raw_ts = self.df_ts_raw_copy.copy()
                 elements = year_raw_ts.columns.get_level_values(0).unique()
                 time_series = year_raw_ts.columns.get_level_values(1).unique()
-                for element,ts in zip(elements,time_series):
+                elements_time_series = year_raw_ts.columns.droplevel(list(range(2, year_raw_ts.columns.nlevels))).unique()
+                for element,ts in elements_time_series: #zip(elements,time_series):
                     unstacked = year_raw_ts.unstack(header_set_time_steps)
                     if (element,ts) in self.optimization_setup.year_specific_ts[year].keys():
                         unstacked[element,ts] = self.optimization_setup.year_specific_ts[year][(element,ts)]
@@ -272,7 +274,7 @@ class TimeSeriesAggregation(object):
                         ts_adjusted = self.multiply_yearly_variation(self.optimization_setup.get_element(Element,element), ts, year_raw_ts.unstack(header_set_time_steps)[element,ts], year)
                         unstacked[element,ts] = ts_adjusted
                     year_raw_ts = unstacked.unstack(level=header_set_time_steps).T
-                self.df_ts_raw = year_raw_ts
+                df_ts_raw = year_raw_ts
                 if not self.df_ts_raw.empty:
                     # run time series aggregation to create typical periods
                     self.run_tsa(year_specific=year)
