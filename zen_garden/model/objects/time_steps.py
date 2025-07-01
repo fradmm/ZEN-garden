@@ -196,7 +196,7 @@ class TimeStepsDicts(object):
             time_steps_start = []
             time_steps_end = []
             while counter < len(sequence_time_steps):
-                time_steps_start.append(sequence_time_steps[counter])
+                time_steps_start.append(sequence_time_steps[counter - 1])
                 counter += unaggregated_time_steps
                 time_steps_end.append(sequence_time_steps[counter - 1])
             self.time_steps_storage_level_firstlast_multiyear = {end: start for start, end in zip(time_steps_start, time_steps_end)}

@@ -352,20 +352,21 @@ class StorageTechnologyRules(GenericRule):
         """
 
         storage_level_jump_multiyear = self.variables["storage_level_jump_multiyear"]
-        storage_level = self.variables["storage_level"]
-        startend_dict = self.energy_system.time_steps.time_steps_storage_level_startend_multiyear
-        firstlast_dict = self.energy_system.time_steps.time_steps_storage_level_firstlast_multiyear
-        times = self.get_storage2year_time_step_array()
-
         constraints = {}
 
         if self.system.multiyear_periodicity and self.system.interval_between_years > 1:
+
+            storage_level = self.variables["storage_level"]
+            startend_dict = self.energy_system.time_steps.time_steps_storage_level_startend_multiyear
+            firstlast_dict = self.energy_system.time_steps.time_steps_storage_level_firstlast_multiyear
+            times = self.get_storage2year_time_step_array()
 
             # start_timesteps = list(startend_dict.keys())
             # mask_start = xr.DataArray(np.isin(storage_level_jump_multiyear.coords["set_time_steps_storage"], start_timesteps),
             #                             coords=[storage_level_jump_multiyear.coords["set_time_steps_storage"]],
             #                             dims=["set_time_steps_storage"])
             # delta_jump = xr.DataArray(data=np.zeros(storage_level_jump_multiyear.shape),coords=storage_level_jump_multiyear.coords,dims=storage_level_jump_multiyear.dims)
+            constraints[f"storage_jump_0"] = storage_level_jump_multiyear.sel(set_time_steps_yearly=0) == 0
 
             for start in startend_dict.keys():
                 end = startend_dict[start]
@@ -373,7 +374,8 @@ class StorageTechnologyRules(GenericRule):
                 year = times.loc[start]
                 jump_var = storage_level_jump_multiyear.sel(set_time_steps_yearly=year)
                 delta_expr = (storage_level.sel(set_time_steps_storage=end) -
-                              storage_level.sel(set_time_steps_storage=first)
+                              storage_level.sel(set_time_steps_storage=first) -
+                              storage_level_jump_multiyear.sel(set_time_steps_yearly=year-1)
                              ) * (self.system.interval_between_years - 1)
                 constraints[f"storage_jump_{year}"] = (jump_var == delta_expr)
                 # delta_jump.loc[{"set_time_steps_storage": start}] = ( self.variables["storage_level"].sel(set_time_steps_storage=end).values
@@ -482,9 +484,11 @@ class StorageTechnologyRules(GenericRule):
         self_discharge_previous = (1-self_discharge)**time_steps_storage_duration
         self_discharge_previous["set_time_steps_storage"] = times_coupling
         term_jump_multiyear = self.map_and_expand(self.variables["storage_level_jump_multiyear"], times)
-        mask_jump_multiyear = np.isin(self.energy_system.time_steps.sequence_time_steps_storage, list(self.energy_system.time_steps.time_steps_storage_level_startend_multiyear.keys()))
+        if self.system.multiyear_periodicity and self.system.interval_between_years > 1:
+            mask_jump_multiyear = np.isin(self.energy_system.time_steps.time_steps_storage, list(self.energy_system.time_steps.time_steps_storage_level_startend_multiyear.keys()))
+            term_jump_multiyear = term_jump_multiyear.where(mask_jump_multiyear)
         term_delta_storage_level = (
-                self.variables["storage_level"] - self_discharge_previous * self.variables["storage_level"].sel({"set_time_steps_storage": times_coupling})- term_jump_multiyear.where(mask_jump_multiyear))
+                self.variables["storage_level"] - self_discharge_previous * self.variables["storage_level"].sel({"set_time_steps_storage": times_coupling})- term_jump_multiyear)
         # charge and discharge flow
         times_year_time_step = self.get_year_time_step_array()
         efficiency_charge = self.parameters.efficiency_charge.broadcast_like(times_year_time_step).where(times_year_time_step, 0.0).sum("set_time_steps_yearly")
