@@ -298,6 +298,8 @@ class DataInput:
         :param attribute_dict: name of selected attribute
         :return: attribute value, attribute unit
         """
+       # skip_try = False
+
         if attribute_name not in attribute_dict:
             parameter_change_log = self.energy_system.optimization_setup.parameter_change_log
 
@@ -324,6 +326,7 @@ class DataInput:
 
             else:
                 raise AttributeError(f"Attribute {attribute_name} does not exist in input data of {self.element.name}")
+
         try:
             attribute_value = float(attribute_dict[attribute_name]["default_value"])
             attribute_unit = attribute_dict[attribute_name]["unit"]
@@ -338,6 +341,7 @@ class DataInput:
             else:
                 attribute_value = attribute_dict[attribute_name]
             attribute_unit = None
+
         return attribute_value,attribute_unit
 
     def extract_year_specific_ts(self, file_name, index_name_list, time_steps, subelement,default_value,df_output_generic):
