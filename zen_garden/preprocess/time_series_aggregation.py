@@ -269,13 +269,13 @@ class TimeSeriesAggregation(object):
                 for element,ts in elements_time_series: #zip(elements,time_series):
                     unstacked = year_raw_ts.unstack(header_set_time_steps)
                     if (element,ts) in self.optimization_setup.year_specific_ts[year].keys():
-                        ii = unstacked[element, ts].index
-                        unstacked[element,ts] = self.optimization_setup.year_specific_ts[year][(element,ts)][ii]
+                        # ii = unstacked[element, ts].index
+                        unstacked[element,ts] = self.optimization_setup.year_specific_ts[year][(element,ts)]# [ii]
                     else:
                         ts_adjusted = self.multiply_yearly_variation(self.optimization_setup.get_element(Element,element), ts, year_raw_ts.unstack(header_set_time_steps)[element,ts], year)
                         unstacked[element,ts] = ts_adjusted
                     year_raw_ts = unstacked.unstack(level=header_set_time_steps).T
-                df_ts_raw = year_raw_ts
+                self.df_ts_raw = year_raw_ts # New from FDM
                 if not self.df_ts_raw.empty:
                     # run time series aggregation to create typical periods
                     self.run_tsa(year_specific=year)
@@ -337,7 +337,10 @@ class TimeSeriesAggregation(object):
                             year_ts = self.year_specific_tsa[year][element.name,ts]
                             #ToDO better assignment of values?
                             for column in year_ts.columns:
-                                new_ts.loc[column,element_time_steps] = year_ts[column].values
+                                if isinstance(column, tuple):
+                                    new_ts.loc[*column, element_time_steps] = year_ts[column].values
+                                else:
+                                    new_ts.loc[column,element_time_steps] = year_ts[column].values
                 #insert year specific TS if not aggregated
                 else:
                     for year in self.optimization_setup.year_specific_ts.keys():
