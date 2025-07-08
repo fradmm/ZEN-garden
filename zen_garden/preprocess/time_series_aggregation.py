@@ -269,8 +269,8 @@ class TimeSeriesAggregation(object):
                 for element,ts in elements_time_series: #zip(elements,time_series):
                     unstacked = year_raw_ts.unstack(header_set_time_steps)
                     if (element,ts) in self.optimization_setup.year_specific_ts[year].keys():
-                        # ii = unstacked[element, ts].index
-                        unstacked[element,ts] = self.optimization_setup.year_specific_ts[year][(element,ts)]# [ii]
+                        ii = unstacked[element, ts].index
+                        unstacked[element,ts] = self.optimization_setup.year_specific_ts[year][(element,ts)][ii]
                     else:
                         ts_adjusted = self.multiply_yearly_variation(self.optimization_setup.get_element(Element,element), ts, year_raw_ts.unstack(header_set_time_steps)[element,ts], year)
                         unstacked[element,ts] = ts_adjusted

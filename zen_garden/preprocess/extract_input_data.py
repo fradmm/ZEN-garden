@@ -152,7 +152,7 @@ class DataInput:
         common_index = df_output_copy.index.intersection(df_input.index)
         assert default_value is not None or len(common_index) == len(df_output_copy.index), f"Input for {file_name} does not provide entire dataset and no default given in attributes.json"
         df_output_copy.loc[common_index] = df_input.loc[common_index]
-        df_output_copy = df_output_copy.loc[common_index]
+        # df_output_copy = df_output_copy.loc[common_index]
         return df_output_copy
 
     def read_input_csv(self, input_file_name):
