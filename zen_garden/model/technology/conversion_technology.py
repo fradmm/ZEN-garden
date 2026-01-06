@@ -280,6 +280,8 @@ class ConversionTechnology(Technology):
         rules.constraint_carrier_conversion()
         # minimum average annual capacity factor
         rules.constraint_minimum_full_load_hours()
+        # BRANCH SPECIFIG constraint on reversible_heat_pump_H
+        rules.constraint_reversible_heat_pump()
 
         # capex
         set_pwa_capex = cls.create_custom_set(["set_conversion_technologies", "set_capex_pwa", "set_nodes", "set_time_steps_yearly"], optimization_setup)
@@ -368,6 +370,18 @@ class ConversionTechnologyRules(GenericRule):
         constraints = lhs >= rhs
 
         self.constraints.add_constraint("constraint_capacity_factor_conversion", constraints)
+
+
+    def constraint_reversible_heat_pump(self):
+
+        capacity_rhp = self.variables["capacity"].loc["reversible_heat_pump", :,:,:]#"power", nodes, time_step_year]
+        capacity_rhp_H = self.variables["capacity"].loc["reversible_heat_pump_H", :,:,:]
+
+        lhs = capacity_rhp - capacity_rhp_H
+        rhs = 0
+        constraints = lhs == rhs
+
+        self.constraints.add_constraint("constraint_reversible_heat_pump", constraints)
 
 
     def constraint_minimum_full_load_hours(self):
