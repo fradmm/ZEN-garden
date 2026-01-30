@@ -49,6 +49,7 @@ class Carrier(Element):
         self.carbon_intensity_carrier_import = self.data_input.extract_input_data("carbon_intensity_carrier_import", index_sets=["set_nodes", "set_time_steps_yearly"], time_steps="set_time_steps_yearly", unit_category={"emissions": 1, "energy_quantity": -1})
         self.carbon_intensity_carrier_export = self.data_input.extract_input_data("carbon_intensity_carrier_export", index_sets=["set_nodes", "set_time_steps_yearly"], time_steps="set_time_steps_yearly",  unit_category={"emissions": 1, "energy_quantity": -1})
         self.price_shed_demand = self.data_input.extract_input_data("price_shed_demand", index_sets=[], unit_category={"money": 1, "energy_quantity": -1})
+        self.conversion_output_capacity = self.data_input.extract_input_data("conversion_output_capacity", index_sets=["set_nodes", "set_time_steps_yearly"], time_steps="set_time_steps_yearly", unit_category={"energy_quantity": 1, "time": -1})
 
     def overwrite_time_steps(self, base_time_steps):
         """ overwrites set_time_steps_operation
@@ -91,6 +92,8 @@ class Carrier(Element):
         optimization_setup.parameters.add_parameter(name="carbon_intensity_carrier_import", index_names=["set_carriers", "set_nodes", "set_time_steps_yearly"], doc='Parameter which specifies the carbon intensity of carrier import', calling_class=cls)
         # carbon intensity carrier exmport
         optimization_setup.parameters.add_parameter(name="carbon_intensity_carrier_export", index_names=["set_carriers", "set_nodes", "set_time_steps_yearly"], doc='Parameter which specifies the carbon intensity of carrier export', calling_class=cls)
+        # conversion output capacity
+        optimization_setup.parameters.add_parameter(name="conversion_output_capacity", index_names=["set_carriers", "set_nodes", "set_time_steps_yearly"], doc='Parameter which specifies the maximum conversion output capacity for the carrier', calling_class=cls)
 
     @classmethod
     def construct_vars(cls, optimization_setup):
@@ -161,6 +164,9 @@ class Carrier(Element):
 
         # energy balance
         rules.constraint_nodal_energy_balance()
+
+        # conversion output capacity
+        rules.constraint_conversion_output_capacity()
 
         # add pe.Sets of the child classes
         for subclass in cls.__subclasses__():
@@ -537,3 +543,22 @@ class CarrierRules(GenericRule):
 
         ### return
         self.constraints.add_constraint("constraint_nodal_energy_balance",constraints)
+
+    def constraint_conversion_output_capacity(self):
+
+        index_values, index_names = Carrier.create_custom_set(["set_carriers", "set_nodes", "set_time_steps_operation"], self.optimization_setup)
+        index = ZenIndex(index_values, index_names)
+
+        nodes = list(self.sets["set_nodes"])
+        for carrier in index.get_unique([0]):
+            capacity_set = self.parameters.conversion_output_capacity.loc[carrier]
+            if np.isfinite(capacity_set).any():
+                techs_out = [tech for tech in self.sets["set_conversion_technologies"] if
+                             carrier in self.sets["set_output_carriers"][tech]]
+                rhs = self.variables["capacity"].loc[techs_out, 'power', nodes].sum(dim='set_technologies').rename({'set_location': 'set_nodes'}) - self.parameters.conversion_output_capacity.loc[carrier]
+                lhs = 0
+                constraints = lhs == rhs
+                self.constraints.add_constraint(f"constraint_conversion_output_capacity_{carrier}",constraints)
+                a=1
+            else:
+                continue

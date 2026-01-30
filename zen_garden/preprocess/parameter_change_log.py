@@ -3,6 +3,10 @@ def parameter_change_log():
       "min_full_load_hours_fraction": {
            "default_value": 0, # only 0, 1, or 'inf' are allowed
            "unit": "min_load"
+      },
+      "conversion_output_capacity": {
+              "default_value": "inf", # only 0, 1, or 'inf' are allowed
+                "unit": "demand"
       }
     #    "new_parameter_name": {
      #       "default_value": 0, # only 0, 1, or 'inf' are allowed
