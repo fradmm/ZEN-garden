@@ -557,7 +557,7 @@ class CarrierRules(GenericRule):
                              carrier in self.sets["set_output_carriers"][tech]]
                 rhs = self.variables["capacity"].loc[techs_out, 'power', nodes].sum(dim='set_technologies').rename({'set_location': 'set_nodes'}) - self.parameters.conversion_output_capacity.loc[carrier]
                 lhs = 0
-                constraints = lhs == rhs
+                constraints = lhs <= rhs
                 self.constraints.add_constraint(f"constraint_conversion_output_capacity_{carrier}",constraints)
                 a=1
             else:
