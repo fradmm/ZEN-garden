@@ -97,6 +97,7 @@ class EnergySystem:
         self.discount_rate = self.data_input.extract_input_data("discount_rate", index_sets=[], unit_category={})
         # carbon emissions limit
         self.carbon_emissions_annual_limit = self.data_input.extract_input_data("carbon_emissions_annual_limit", index_sets=["set_time_steps_yearly"], time_steps="set_time_steps_yearly", unit_category={"emissions": 1})
+        self.renewables_target = self.data_input.extract_input_data("renewables_target", index_sets=["set_nodes","set_time_steps_yearly"], time_steps="set_time_steps_yearly", unit_category={"energy_quantity": 1})
         _fraction_year = self.system.unaggregated_time_steps_per_year / self.system.total_hours_per_year
         self.carbon_emissions_annual_limit = self.carbon_emissions_annual_limit * _fraction_year  # reduce to fraction of year
         self.carbon_emissions_budget = self.data_input.extract_input_data("carbon_emissions_budget", index_sets=[], unit_category={"emissions": 1})
@@ -238,6 +239,8 @@ class EnergySystem:
         parameters.add_parameter(name="discount_rate", doc='Parameter which specifies the discount rate of the energy system', calling_class=cls)
         # carbon emissions limit
         parameters.add_parameter(name="carbon_emissions_annual_limit", set_time_steps="set_time_steps_yearly", doc='Parameter which specifies the total limit on carbon emissions', calling_class=cls)
+        # renewables target
+        parameters.add_parameter(name="renewables_target", index_names=["set_nodes","set_time_steps_yearly"], doc='Parameter which specifies the renewables target', calling_class=cls)
         # carbon emissions budget
         parameters.add_parameter(name="carbon_emissions_budget", doc='Parameter which specifies the total budget of carbon emissions until the end of the entire time horizon', calling_class=cls)
         # carbon emissions budget
@@ -313,6 +316,9 @@ class EnergySystem:
 
         # disable annual carbon emissions overshoot
         self.rules.constraint_carbon_emissions_annual_overshoot()
+
+        # renewables target
+        self.rules.constraint_renewables_target()
 
 
     def construct_objective(self):
@@ -591,3 +597,25 @@ class EnergySystemRules(GenericRule):
         """
         sets = self.sets
         return model.variables["carbon_emissions_cumulative"][sets["set_time_steps_yearly"][-1]].to_linexpr()
+
+    def constraint_renewables_target(self):
+        """ constraint to ensure that a certain share of the energy demand is covered by renewable energy sources
+
+        .. math::
+            \\dfrac{\\sum_{t \\in \\mathcal{T}^\\mathrm{conv}, c \\in \\mathcal{C}^\\mathrm{ren}} F_{y,t,c}}{\\sum_{t \\in \\mathcal{T}^\\mathrm{conv}} F_{y,t}} \\geq R_y
+
+        :math:`F_{y,t,c}`: flow of technology :math:`t` with carrier :math:`c` in year :math:`y` \n
+        :math:`F_{y,t}`: flow of technology :math:`t` in year :math:`y` \n
+        :math:`R_y`: renewables target in year :math:`y`
+
+        """
+        renewables_target = self.parameters.renewables_target
+
+        annual_production = (self.variables["flow_conversion_output"] * self.get_year_time_step_duration_array()).sum("set_time_steps_operation")
+        renewables_production = annual_production.sel(set_conversion_technologies=["photovoltaics","wind_onshore"]).sum("set_conversion_technologies").sel(set_output_carriers="electricity")
+
+        lhs =  renewables_production
+        rhs = renewables_target
+        constraints = lhs >= rhs
+
+        self.constraints.add_constraint("constraint_renewables_target",constraints)
