@@ -3,6 +3,14 @@ def parameter_change_log():
         "min_full_load_hours_fraction": {
             "default_value": 0,  # only 0, 1, or 'inf' are allowed
             "unit": "min_load"
+        },
+        "min_load_non_binary": {
+            "default_value": 0,  # only 0, 1, or 'inf' are allowed
+            "unit": "min_load"
+        },
+        "min_load_non_binary_energy": {
+            "default_value": 0,  # only 0, 1, or 'inf' are allowed
+            "unit": "min_load_energy"
         }
       #  "updated_name": "outdated_name",
 

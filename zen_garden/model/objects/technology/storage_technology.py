@@ -68,6 +68,8 @@ class StorageTechnology(Technology):
         # add min load max load time series for energy
         self.raw_time_series["min_load_energy"] = self.data_input.extract_input_data("min_load_energy", index_sets=["set_nodes", "set_time_steps"], time_steps="set_base_time_steps_yearly", unit_category={})
         self.raw_time_series["max_load_energy"] = self.data_input.extract_input_data("max_load_energy", index_sets=["set_nodes", "set_time_steps"], time_steps="set_base_time_steps_yearly", unit_category={})
+        self.raw_time_series["min_load_non_binary_energy"] = self.data_input.extract_input_data("min_load_non_binary_energy", index_sets=["set_nodes", "set_time_steps"], time_steps="set_base_time_steps_yearly", unit_category={})
+
         # add flow_storage_inflow time series
         self.raw_time_series["flow_storage_inflow"] = self.data_input.extract_input_data("flow_storage_inflow", index_sets=["set_nodes", "set_time_steps"], time_steps="set_base_time_steps_yearly", unit_category={"energy_quantity": 1, "time": -1})
 

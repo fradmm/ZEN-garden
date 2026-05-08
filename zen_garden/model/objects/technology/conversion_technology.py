@@ -281,6 +281,9 @@ class ConversionTechnology(Technology):
         rules = ConversionTechnologyRules(optimization_setup)
         # capacity factor constraint
         rules.constraint_capacity_factor_conversion()
+
+        rules.constraint_min_load_non_binary()
+
         # opex and emissions constraint for conversion technologies
         rules.constraint_opex_emissions_technology_conversion()
         # conversion factor
@@ -377,6 +380,35 @@ class ConversionTechnologyRules(GenericRule):
         constraints = lhs >= rhs
 
         self.constraints.add_constraint("constraint_capacity_factor_conversion", constraints)
+
+    def constraint_min_load_non_binary(self):
+        """ Load is limited by the installed capacity and the maximum load factor
+
+        .. math::
+            G_{i,n,t}^\\mathrm{r} \\leq m^{\\mathrm{max}}_{i,n,t}S_{i,n,y}
+
+        :math:`m_{i,n,t}^{\\mathrm{max}}`: maximum load factor of the technology :math:`i` at node :math:`n` in time step :math:`t` \n
+        :math:`S_{i,n,y}`: installed capacity of the technology :math:`i` at node :math:`n` in year :math:`y` \n
+        :math:`G_{i,n,t}^\\mathrm{r}`: reference carrier flow of the technology :math:`i` at node :math:`n` in time step :math:`t`
+
+
+        """
+        techs = self.sets["set_conversion_technologies"]
+        if len(techs) == 0:
+            return
+        nodes = self.sets["set_nodes"]
+        times = self.parameters.min_load_non_binary.coords["set_time_steps_operation"]
+        time_step_year = xr.DataArray([self.optimization_setup.energy_system.time_steps.convert_time_step_operation2year(t) for t in times.data], coords=[times])
+        term_capacity = (
+                self.parameters.min_load_non_binary.loc[techs, "power", nodes, :]
+                * self.variables["capacity"].loc[techs, "power", nodes, time_step_year]
+            ).rename({"set_technologies": "set_conversion_technologies", "set_location": "set_nodes"})
+        term_reference_flow = self.get_flow_expression_conversion(techs,  nodes)
+        lhs = term_capacity - term_reference_flow
+        rhs = 0
+        constraints = lhs <= rhs
+
+        self.constraints.add_constraint("constraint_min_load_non_binary", constraints)
 
     def constraint_minimum_full_load_hours(self):
         """ Sets minimum full load hours for each unit.
