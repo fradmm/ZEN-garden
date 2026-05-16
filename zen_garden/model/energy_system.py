@@ -15,6 +15,9 @@ from zen_garden.preprocess.extract_input_data import DataInput
 from zen_garden.preprocess.unit_handling import UnitHandling
 from .time_steps import TimeStepsDicts
 from pathlib import Path
+from zen_garden.model.element import Element
+from zen_garden.model.component import ZenIndex
+import linopy as lp
 
 class EnergySystem:
     """
@@ -103,6 +106,8 @@ class EnergySystem:
         self.price_carbon_emissions = self.data_input.extract_input_data("price_carbon_emissions", index_sets=["set_time_steps_yearly"], time_steps="set_time_steps_yearly", unit_category={"money": 1, "emissions": -1})
         self.price_carbon_emissions_budget_overshoot = self.data_input.extract_input_data("price_carbon_emissions_budget_overshoot", index_sets=[], unit_category={"money": 1, "emissions": -1})
         self.price_carbon_emissions_annual_overshoot = self.data_input.extract_input_data("price_carbon_emissions_annual_overshoot", index_sets=[], unit_category={"money": 1, "emissions": -1})
+        # self sufficiency target
+        self.self_sufficiency = self.data_input.extract_input_data("self_sufficiency",index_sets=[], unit_category={})
         # market share unbounded
         self.market_share_unbounded = self.data_input.extract_input_data("market_share_unbounded", index_sets=[], unit_category={})
         # knowledge_spillover_rate
@@ -246,6 +251,8 @@ class EnergySystem:
         parameters.add_parameter(name="price_carbon_emissions_budget_overshoot", doc='Parameter which specifies the carbon price for budget overshoot', calling_class=cls)
         # carbon price of annual overshoot
         parameters.add_parameter(name="price_carbon_emissions_annual_overshoot", doc='Parameter which specifies the carbon price for annual overshoot', calling_class=cls)
+        # self sufficiency target
+        parameters.add_parameter(name="self_sufficiency", doc='Parameter which specifies the self sufficiency target of each node in the energy system', calling_class=cls)
         # carbon price of overshoot
         parameters.add_parameter(name="market_share_unbounded", doc='Parameter which specifies the unbounded market share', calling_class=cls)
         # knowledge depreciation rate
@@ -311,6 +318,8 @@ class EnergySystem:
 
         # disable annual carbon emissions overshoot
         self.rules.constraint_carbon_emissions_annual_overshoot()
+
+        self.rules.constraint_self_sufficiency()
 
 
     def construct_objective(self):
@@ -488,6 +497,104 @@ class EnergySystemRules(GenericRule):
             constraints = None
 
         self.constraints.add_constraint("constraint_carbon_emissions_annual_overshoot",constraints)
+
+    def constraint_self_sufficiency(self):
+        """ ensures that nodes in the energy system are self-sufficient,
+        by limiting the annual net energy imports of a node relative to its total domestic energy production.
+
+        .. math::
+            E_{n}^{prod} \\left(1 - \\frac{1}{c_{n}^{suff}}\\right) + E_{n}^{imp} \\leq 0
+
+        with the aggregated net production and net imports defined as:
+
+        .. math::
+            E_{n}^{prod} = \\sum F_{n}^{conv, output} - \\sum F_{n}^{conv, input} + \\sum F_{n}^{stor, discharge} - \\sum F_{n}^{stor, charge}
+
+        .. math::
+            E_{n}^{imp} = \\sum F_{n}^{import} - \\sum F_{n}^{export} + \\sum F_{n}^{trans, in} - \\sum F_{n}^{trans, out}
+
+        :math:`E_{n}^{prod}`: total annual net energy production at node :math:`n` \n
+        :math:`E_{n}^{imp}`: total annual net energy imports at node :math:`n` \n
+        :math:`c_{n}^{suff}`: specific self-sufficiency target fraction at node :math:`n` \n
+        :math:`F_{n}^{...}`: respective energy flows aggregated over all applicable carriers, technologies, and operational time steps at node :math:`n`
+        """
+
+        flow_conversion_output = self.variables["flow_conversion_output"].sum(["set_conversion_technologies","set_output_carriers","set_time_steps_operation"])
+        flow_conversion_input = self.variables["flow_conversion_input"].sum(["set_conversion_technologies","set_input_carriers","set_time_steps_operation"])
+        flow_import = self.variables["flow_import"].sum(["set_carriers","set_time_steps_operation"])
+        flow_export = self.variables["flow_export"].sum(["set_carriers","set_time_steps_operation"])
+
+        ### index sets
+        index_values, index_names = Element.create_custom_set(["set_carriers", "set_nodes", "set_time_steps_operation"], self.optimization_setup)
+        index = ZenIndex(index_values, index_names)
+        if self.variables["flow_transport"].size > 0:
+            # recalculate all the edges
+            edges_in = {node: self.energy_system.calculate_connected_edges(node, "in") for node in self.sets["set_nodes"]}
+            edges_out = {node: self.energy_system.calculate_connected_edges(node, "out") for node in self.sets["set_nodes"]}
+            max_edges = max([len(edges_in[node]) for node in self.sets["set_nodes"]] + [len(edges_out[node]) for node in
+                                                                                   self.sets["set_nodes"]])
+
+            # create the variables
+            flow_transport_in_vars = xr.DataArray(-1, coords=[self.parameters.demand.coords["set_carriers"],
+                                                              self.parameters.demand.coords["set_nodes"],
+                                                              self.parameters.demand.coords["set_time_steps_operation"],
+                                                              xr.DataArray(np.arange(
+                                                                  len(self.sets["set_transport_technologies"]) * (
+                                                                          2 * max_edges + 1)), dims=["_term"])])
+            flow_transport_in_coeffs = xr.full_like(flow_transport_in_vars, np.nan, dtype=float)
+            flow_transport_out_vars = flow_transport_in_vars.copy()
+            flow_transport_out_coeffs = xr.full_like(flow_transport_in_vars, np.nan, dtype=float)
+            for carrier, node in index.get_unique([0, 1]):
+                techs = [tech for tech in self.sets["set_transport_technologies"] if
+                         carrier in self.sets["set_reference_carriers"][tech]]
+                edges_in = self.energy_system.calculate_connected_edges(node, "in")
+                edges_out = self.energy_system.calculate_connected_edges(node, "out")
+
+                # get the variables for the in flow
+                in_vars_plus = self.variables["flow_transport"].labels.loc[techs, edges_in, :].data
+                in_vars_plus = in_vars_plus.reshape((-1, in_vars_plus.shape[-1])).T
+                in_coefs_plus = np.ones_like(in_vars_plus)
+                in_vars_minus = self.variables["flow_transport_loss"].labels.loc[techs, edges_in, :].data
+                in_vars_minus = in_vars_minus.reshape((-1, in_vars_minus.shape[-1])).T
+                in_coefs_minus = np.ones_like(in_vars_minus)
+                in_vars = np.concatenate([in_vars_plus, in_vars_minus], axis=1)
+                in_coefs = np.concatenate([in_coefs_plus, -in_coefs_minus], axis=1)
+                flow_transport_in_vars.loc[carrier, node, :, :in_vars.shape[-1] - 1] = in_vars
+                flow_transport_in_coeffs.loc[carrier, node, :, :in_coefs.shape[-1] - 1] = in_coefs
+
+                # get the variables for the out flow
+                out_vars_plus = self.variables["flow_transport"].labels.loc[techs, edges_out, :].data
+                out_vars_plus = out_vars_plus.reshape((-1, out_vars_plus.shape[-1])).T
+                out_coefs_plus = np.ones_like(out_vars_plus)
+                flow_transport_out_vars.loc[carrier, node, :, :out_vars_plus.shape[-1] - 1] = out_vars_plus
+                flow_transport_out_coeffs.loc[carrier, node, :, :out_coefs_plus.shape[-1] - 1] = out_coefs_plus
+
+            # craete the linear expression
+            term_flow_transport_in = lp.LinearExpression(xr.Dataset({"coeffs": flow_transport_in_coeffs,
+                                                                "vars": flow_transport_in_vars}), self.model)
+            term_flow_transport_out = lp.LinearExpression(xr.Dataset({"coeffs": flow_transport_out_coeffs,
+                                                                 "vars": flow_transport_out_vars}), self.model)
+        else:
+            # if there is no carrier flow we just create empty arrays
+            term_flow_transport_in = self.variables["flow_import"].where(False).to_linexpr()
+            term_flow_transport_out = self.variables["flow_import"].where(False).to_linexpr()
+
+        flow_transport_in = term_flow_transport_in.sum(["set_carriers", "set_time_steps_operation"])
+        flow_transport_out = term_flow_transport_out.sum(["set_carriers", "set_time_steps_operation"])
+
+        flow_storage_charge = self.variables["flow_storage_charge"].sum(["set_storage_technologies","set_time_steps_operation"])
+        flow_storage_discharge = self.variables["flow_storage_discharge"].sum(["set_storage_technologies","set_time_steps_operation"])
+
+        net_production = flow_conversion_output - flow_conversion_input + flow_storage_discharge - flow_storage_charge
+        net_imports = flow_import - flow_export + flow_transport_in - flow_transport_out
+
+        self_sufficiency = self.parameters.self_sufficiency
+
+        lhs = net_production * (1 - 1/self_sufficiency) + net_imports
+        rhs = 0
+        constraints = lhs <= rhs
+
+        self.constraints.add_constraint(f"constraint_self_sufficiency",constraints)
 
 
     def constraint_carbon_emissions_annual(self):
